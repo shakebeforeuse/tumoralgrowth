@@ -1,32 +1,42 @@
 public class TumorAutomata
 {
-	static final double PS = 1;
-	static final double PP = .25;
-	static final double PM = .8;
-	static final int    NP = 1;
+	public double ps;
+	public double pp;
+	public double pm;
+	public int    np;
 
-	private RejillaBinaria tejido_[];
+	private RejillaBinaria tejido_;
 	private int[][] ph_;
 	private int it_;
 	private int tam_;
 
-	public TumorAutomata(int tam)
+	public TumorAutomata(int tam, double ps, double pp, double pm, int np)
 	{
-		tejido_ = new RejillaBinaria[]{new RejillaBinaria(tam, tam), new RejillaBinaria(tam, tam)};
+		tejido_ = new RejillaBinaria(tam, tam);
 		ph_     = new int[tam][tam];
 		tam_    = tam;
+		
+		this.ps = ps;
+		this.pp = pp;
+		this.pm = pm;
+		this.np = np;
+	}
+	
+	public TumorAutomata(int tam)
+	{
+		this(tam, 1, .25, .2, 1);
 	}
 
 	public void cambiarEstado(int x, int y, boolean v)
 	{
 		//~ tejido_[(it_ + 1) % 2].set(x, y, v);
 		//Mirar comentario en siguienteGeneracion
-		tejido_[it_ ].set(x, y, v);
+		tejido_.set(x, y, v);
 	}
 
 	void actualizarCelda(int x, int y)
 	{
-		if (tejido_[it_].get(x, y) )
+		if (tejido_.get(x, y) )
 		{
 			if (comprobarSupervivencia())
 			{
@@ -42,7 +52,7 @@ public class TumorAutomata
 					{
 						//Migra
 						pom = true;
-
+	
 						//Dejar libre la posición actual
 						cambiarEstado(x, y, false);
 					}
@@ -51,15 +61,15 @@ public class TumorAutomata
 				{
 					//Actualizar posiciones
 					float denominador =  0;
-					denominador += !tejido_[it_].get(x-1, y) ? 1:0;
-					denominador += !tejido_[it_].get(x+1, y) ? 1:0;
-					denominador += !tejido_[it_].get(x, y-1) ? 1:0;
-					denominador += !tejido_[it_].get(x, y+1) ? 1:0;
+					denominador += !tejido_.get(x-1, y) ? 1:0;
+					denominador += !tejido_.get(x+1, y) ? 1:0;
+					denominador += !tejido_.get(x, y-1) ? 1:0;
+					denominador += !tejido_.get(x, y+1) ? 1:0;
 
-					float p1 = !tejido_[it_].get(x-1, y) ? (1/denominador) : 0;
-					float p2 = !tejido_[it_].get(x+1, y) ? (1/denominador) : 0;
-					float p3 = !tejido_[it_].get(x, y-1) ? (1/denominador) : 0;
-					//~ float p4 = !tejido_[it_].get(x, y+1) ? (1/denominador) : 0;
+					float p1 = !tejido_.get(x-1, y) ? (1/denominador) : 0;
+					float p2 = !tejido_.get(x+1, y) ? (1/denominador) : 0;
+					float p3 = !tejido_.get(x, y-1) ? (1/denominador) : 0;
+					//~ float p4 = !tejido_.get(x, y+1) ? (1/denominador) : 0;
 
 					float r = (float)Math.random();
 
@@ -86,26 +96,26 @@ public class TumorAutomata
 
 	boolean comprobarSupervivencia()
 	{
-		return Math.random() < TumorAutomata.PS;
+		return Math.random() < ps;
 	}
 
 	boolean comprobarVecindadLibre(int x, int y)
 	{
-		return !(tejido_[it_].get(x-1, y) && tejido_[it_].get(x+1, y)
-			  && tejido_[it_].get(x, y-1) && tejido_[it_].get(x, y+1));
+		return !(tejido_.get(x-1, y) && tejido_.get(x+1, y)
+			  && tejido_.get(x, y-1) && tejido_.get(x, y+1));
 	}
 
 	boolean comprobarProliferacion(int x, int y)
 	{
 		boolean prolifera = false;
 
-		if (Math.random() < TumorAutomata.PP)
+		if (Math.random() < pp)
 		{
 			++ph_[x][y];
 
 			//Si hay suficientes señales para proliferar y hay al menos un hueco
 			//libre en la vecindad, se prolifera
-			prolifera = ph_[x][y] >= TumorAutomata.NP && comprobarVecindadLibre(x, y);
+			prolifera = ph_[x][y] >= np && comprobarVecindadLibre(x, y);
 		}
 
 		return prolifera;
@@ -113,7 +123,7 @@ public class TumorAutomata
 
 	boolean comprobarMigracion(int x, int y)
 	{
-		return Math.random() < TumorAutomata.PM && comprobarVecindadLibre(x, y);
+		return Math.random() < pm && comprobarVecindadLibre(x, y);
 	}
 
 	public int size()
@@ -123,7 +133,7 @@ public class TumorAutomata
 	
 	public RejillaBinaria tejido()
 	{
-		return tejido_[it_];
+		return tejido_;
 	}
 	
 	public void siguienteGeneracion()
@@ -141,5 +151,11 @@ public class TumorAutomata
 		 * tiempo real
 		 */
 		//it_ = (it_ + 1) % 2;
+	}
+	
+	public void ejecutar(int nGeneraciones)
+	{
+		for (int i = 0; i < nGeneraciones; ++i)
+			siguienteGeneracion();
 	}
 }

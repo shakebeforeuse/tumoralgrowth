@@ -1,6 +1,9 @@
 import java.awt.image.BufferedImage;
 import java.awt.Image;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.PrintWriter;
 import javax.imageio.ImageIO;
 
 public class RejillaBinaria
@@ -42,8 +45,36 @@ public class RejillaBinaria
 			for (int j = 0; j < dimensiones_[1]; ++j)
 				imagen.setRGB(j, i, rejilla_[i][j]? 0:0xffffff);
 		
-		File output = new File("output.png");
-		try{
-		ImageIO.write(imagen, "png", output);}catch(Exception e){}
+		File salida = new File(nombre + ".png");
+		try
+		{
+			ImageIO.write(imagen, "png", salida);
+		}
+		catch (IOException e)
+		{
+			System.err.println("IOException: " + e.getMessage());
+		}
+	}
+	
+	void guardarPuntos(String nombre)
+	{
+		try
+		{
+			PrintWriter salida = new PrintWriter(nombre + ".tmp");
+			
+			salida.println("# x\ty");
+			salida.println("0\t0\n" + dimensiones_[1] + "\t" + dimensiones_[0]);
+			
+			for (int i = 0; i < dimensiones_[0]; ++i)
+				for (int j = 0; j < dimensiones_[1]; ++j)
+					if (rejilla_[i][j])
+						salida.println(j + "\t" + i);
+			
+			salida.close();
+		}
+		catch (FileNotFoundException e)
+		{
+			System.err.println("Error: " + nombre + ".tmp: El fichero no existe y no puede ser creado");
+		}
 	}
 }

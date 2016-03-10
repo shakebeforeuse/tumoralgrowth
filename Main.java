@@ -12,60 +12,21 @@ public class Main
 		//~ ca.tejido().set(5, 5, true);
 		//~ ca.tejido().set(6, 5, true);
 		
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
+		ca.pm = .8;
+		ca.ejecutar(15);
 		
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
 		
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		ca.siguienteGeneracion();
-		
-		//~ ca.siguienteGeneracion();
-		//~ ca.siguienteGeneracion();
-		//~ ca.siguienteGeneracion();
-		//~ ca.siguienteGeneracion();
-		//~ ca.siguienteGeneracion();
-
-		
-		for (int i = 0; i < 32; ++i)
-		{
-			for (int j = 0; j < 32; ++j)
-				if (ca.tejido().get(i, j))
-					System.out.print("#");
-				else
-					System.out.print("·");
+		//~ for (int i = 0; i < 32; ++i)
+		//~ {
+			//~ for (int j = 0; j < 32; ++j)
+				//~ if (ca.tejido().get(i, j))
+					//~ System.out.print("#");
+				//~ else
+					//~ System.out.print("·");
 			
-			System.out.println("");
-		}
+			//~ System.out.println("");
+		//~ }
 		
-		ca.tejido().guardarImagen("");
+		ca.tejido().guardarPuntos("graph");
 	}
 }
