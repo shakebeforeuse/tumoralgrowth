@@ -7,7 +7,7 @@ public class Main
 		ca.tejido().set(1500, 2500, true);
 		ca.tejido().set(2500, 2500, true);
 		ca.tejido().set(3000, 2500, true);
-		//ca.nucleos(1);
+		ca.nucleos(4);
 		//~ ca.tejido().set(15, 14, true);
 		//~ ca.tejido().set(16, 14, true);
 		//~ ca.tejido().set(17, 14, true);
@@ -18,7 +18,7 @@ public class Main
 		
 		ca.pm = .8;
 		double tic = System.currentTimeMillis();
-		ca.ejecutar(500);
+		ca.ejecutar(250);
 		ca.terminar();
 		double toc = System.currentTimeMillis();
 		

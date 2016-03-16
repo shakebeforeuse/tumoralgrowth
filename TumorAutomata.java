@@ -54,8 +54,6 @@ public class TumorAutomata implements Runnable
 		inicio_ = inicio;
 		fin_    = fin;
 		random_ = new Random();
-		
-		System.out.println(inicio_ + ", " + fin_);
 	}
 	
 	public void terminar()
