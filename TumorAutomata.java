@@ -1,20 +1,42 @@
-public class TumorAutomata
-{
-	public double ps;
-	public double pp;
-	public double pm;
-	public int    np;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
+import java.util.Random;
 
-	private RejillaBinaria tejido_;
-	private int[][] ph_;
-	private int it_;
-	private int tam_;
+public class TumorAutomata implements Runnable
+{
+	static public double ps;
+	static public double pp;
+	static public double pm;
+	static public int    np;
+
+	static private RejillaBinaria tejido_;
+	static private int[][] ph_;
+	static private int it_;
+	static private int tam_;
+	
+	private AtomicLong poblacion_;
+	private int inicio_;
+	private int fin_;
+	private static int pasos_;
+	
+	private static int nucleos_;
+	private ExecutorService threadPool_;
+	private Runnable[] tareas_;
+	private static CyclicBarrier barrera_;
+	
+	private Random random_;
 
 	public TumorAutomata(int tam, double ps, double pp, double pm, int np)
 	{
+		random_ = new Random();
 		tejido_ = new RejillaBinaria(tam, tam);
 		ph_     = new int[tam][tam];
 		tam_    = tam;
+		
+		poblacion_ = new AtomicLong(0);
 		
 		this.ps = ps;
 		this.pp = pp;
@@ -25,6 +47,42 @@ public class TumorAutomata
 	public TumorAutomata(int tam)
 	{
 		this(tam, 1, .25, .2, 1);
+	}
+	
+	private TumorAutomata(int inicio, int fin)
+	{
+		inicio_ = inicio;
+		fin_    = fin;
+		random_ = new Random();
+		
+		System.out.println(inicio_ + ", " + fin_);
+	}
+	
+	public void terminar()
+	{	
+		while (threadPool_ != null && !threadPool_.isTerminated())
+			threadPool_.shutdown();
+	}
+	
+	public void nucleos(int n)
+	{
+		this.terminar();
+		
+		nucleos_    = n;
+		threadPool_ = Executors.newFixedThreadPool(nucleos_);
+		barrera_    = new CyclicBarrier(nucleos_ + 1);
+		tareas_     = new Runnable[nucleos_];
+		
+		for (int i = 0; i < nucleos_; ++i)
+		{
+			int inicioIntervalo = i       * (tam_ / nucleos_);
+			int finIntervalo    = (i + 1) * (tam_ / nucleos_);
+			
+			if ((i + 1) == nucleos_)
+				finIntervalo = tam_;
+			
+			tareas_[i] = new TumorAutomata(inicioIntervalo, finIntervalo);
+		}
 	}
 
 	public void cambiarEstado(int x, int y, boolean v)
@@ -71,7 +129,7 @@ public class TumorAutomata
 					float p3 = !tejido_.get(x, y-1) ? (1/denominador) : 0;
 					//~ float p4 = !tejido_.get(x, y+1) ? (1/denominador) : 0;
 
-					float r = (float)Math.random();
+					float r = (float)random_.nextDouble();
 
 					int vx = x, vy = y;
 					if (r <= p1)
@@ -96,7 +154,7 @@ public class TumorAutomata
 
 	boolean comprobarSupervivencia()
 	{
-		return Math.random() < ps;
+		return random_.nextDouble() < ps;
 	}
 
 	boolean comprobarVecindadLibre(int x, int y)
@@ -109,7 +167,7 @@ public class TumorAutomata
 	{
 		boolean prolifera = false;
 
-		if (Math.random() < pp)
+		if (random_.nextDouble() < pp)
 		{
 			++ph_[x][y];
 
@@ -123,7 +181,7 @@ public class TumorAutomata
 
 	boolean comprobarMigracion(int x, int y)
 	{
-		return Math.random() < pm && comprobarVecindadLibre(x, y);
+		return random_.nextDouble() < pm && comprobarVecindadLibre(x, y);
 	}
 
 	public int size()
@@ -155,7 +213,59 @@ public class TumorAutomata
 	
 	public void ejecutar(int nGeneraciones)
 	{
-		for (int i = 0; i < nGeneraciones; ++i)
-			siguienteGeneracion();
+		if (threadPool_ == null)
+			for (int i = 0; i < nGeneraciones; ++i)
+				siguienteGeneracion();
+		else
+		{
+			pasos_ = nGeneraciones;
+			
+			for (int i = 0; i < tareas_.length; ++i)
+				threadPool_.execute(tareas_[i]);
+				
+			for (int k = 0; k < nGeneraciones; ++k)
+			{
+				try
+				{					
+					barrera_.await();
+				}
+				catch (BrokenBarrierException e)
+				{
+					System.err.println("BrokenBarrierException: " + e.getMessage());
+				}
+				catch (InterruptedException e)
+				{
+					System.err.println("InterruptedException: " + e.getMessage());
+				}
+			}
+		}
+	}
+	
+	public void run()
+	{
+		for (int k = 0; k < pasos_; ++k)
+		{
+			try
+			{
+				for (int i = inicio_; i < fin_; ++i)
+					for (int j = 0; j < tam_; ++j)
+						actualizarCelda(i, j);
+			
+				barrera_.await();
+			}
+			catch (BrokenBarrierException e)
+			{
+				System.err.println("BrokenBarrierException: " + e.getMessage());
+			}
+			catch (InterruptedException e)
+			{
+				System.err.println("InterruptedException: " + e.getMessage());
+			}
+		}
+	}
+	
+	protected void finalize()
+	{
+		this.terminar();
 	}
 }
