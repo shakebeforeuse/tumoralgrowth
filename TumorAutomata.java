@@ -11,7 +11,7 @@ public class TumorAutomata implements Runnable
 	static public double pp;
 	static public double pm;
 	static public int    np;
-
+	
 	static private RejillaBinaria tejido_;
 	static private int[][] ph_;
 	static private int it_;

@@ -37,9 +37,20 @@ public class RejillaBinaria
 			rejilla_[x][y] = v;
 	}
 	
-	void guardarImagen(String nombre)
+	BufferedImage imagen()
 	{
 		BufferedImage imagen = new BufferedImage(dimensiones_[1], dimensiones_[0], BufferedImage.TYPE_BYTE_BINARY);
+		
+		for (int i = 0; i < dimensiones_[0]; ++i)
+			for (int j = 0; j < dimensiones_[1]; ++j)
+				imagen.setRGB(j, i, rejilla_[i][j]? 0:0xffffff);
+		
+		return imagen;
+	}
+	
+	void guardarImagen(String nombre)
+	{
+		BufferedImage imagen = imagen();
 		
 		for (int i = 0; i < dimensiones_[0]; ++i)
 			for (int j = 0; j < dimensiones_[1]; ++j)
