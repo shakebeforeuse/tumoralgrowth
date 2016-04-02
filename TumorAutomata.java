@@ -266,4 +266,9 @@ public class TumorAutomata implements Runnable
 	{
 		this.terminar();
 	}
+	
+	public void reiniciar()
+	{
+		tejido_ = new RejillaBinaria(tam_, tam_);
+	}
 }
