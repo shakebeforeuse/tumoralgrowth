@@ -89,6 +89,17 @@ public class TumorAutomata implements Runnable
 		//Mirar comentario en siguienteGeneracion
 		tejido_.set(x, y, v);
 	}
+	
+	public void proliferar(int x, int y)
+	{
+		tejido_.set(x, y, 2);
+	}
+	
+	public void migrar(int x1, int y1, int x2, int y2)
+	{
+		tejido_.set(x1, y1, 0);
+		tejido_.set(x2, y2, 3);
+	}
 
 	void actualizarCelda(int x, int y)
 	{
@@ -98,22 +109,10 @@ public class TumorAutomata implements Runnable
 			{
 				cambiarEstado(x, y, true);
 				
-				//Sobrevive. Comprobar si prolifera.
-				boolean pom = false;
-				if (comprobarProliferacion(x, y))
-					//Prolifera
-					pom = true;
-				else
-					if (comprobarMigracion(x, y))
-					{
-						//Migra
-						pom = true;
-	
-						//Dejar libre la posición actual
-						cambiarEstado(x, y, false);
-					}
+				//Sobrevive. Comprobar si prolifera o migra.
+				boolean prolifera = comprobarProliferacion(x, y);
 
-				if (pom)
+				if (prolifera || comprobarMigracion(x, y))
 				{
 					//Actualizar posiciones
 					float denominador =  0;
@@ -141,7 +140,10 @@ public class TumorAutomata implements Runnable
 							else
 								vy = y + 1;
 
-					cambiarEstado(vx, vy, true);
+					if (prolifera)
+						proliferar(vx, vy);
+					else
+						migrar(x, y, vx, vy);
 				}
 			}
 			else
