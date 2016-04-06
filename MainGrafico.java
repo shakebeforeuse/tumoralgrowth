@@ -118,14 +118,15 @@ public class MainGrafico
 				
 				tumor = new TumorAutomata(campoTam, campoPs, campoPp, campoPm, campoNP);
 				tumor.tejido().set(campoTam / 2, campoTam / 2, true);
+				tumor.nucleos(Runtime.getRuntime().availableProcessors());
 				
 				if (picLabel == null)
 				{
-					picLabel = new JLabel(new ImageIcon(tumor.tejido().imagen()));
+					picLabel = new JLabel(new ImageIcon(tumor.tejido().imagenColor()));
 					panel.add(picLabel);
 				}
 				else
-					picLabel.setIcon(new ImageIcon(tumor.tejido().imagen()));
+					picLabel.setIcon(new ImageIcon(tumor.tejido().imagenColor()));
 					
 				panel.revalidate();
 				panel.repaint();
@@ -139,7 +140,7 @@ public class MainGrafico
 					{
 						while (!finalizar)
 						{
-							imagen = tumor.tejido().imagen();
+							imagen = tumor.tejido().imagenColor();
 							picLabel.setIcon(new ImageIcon(imagen));
 							
 							tumor.ejecutar(campoIt);
