@@ -30,22 +30,19 @@ public class Speedup
 		
 		Random random = new Random();
 		
-		int[] x = new int[maxTareas];
-		int[] y = new int[maxTareas];
+		RejillaEntera matriz = tumor.tejido();
 		
-		for (int i = 0; i < maxTareas; ++i)
-		{
-			x[i] = random.nextInt(tam);
-			y[i] = random.nextInt(tam);
-		}
+		for (int i = 0; i < tam; ++i)
+			for (int j = 0; j < tam; ++j)
+				matriz.set(i, j, random.nextInt(4));
+		
+		RejillaEntera copia = matriz.clone();
 		
 		System.out.println("Tareas\tSpeedup\tTiempo");
 		
 		for (int n = 1; n <= maxTareas; ++n)
 		{
-			tumor.reiniciar();
-			for (int i = 0; i < maxTareas; ++i)
-				tumor.revivir(x[i], y[i]);
+			tumor.tejido(copia.clone());
 			
 			tumor.nucleos(n);
 			

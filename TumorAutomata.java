@@ -288,6 +288,11 @@ public class TumorAutomata implements Runnable
 		return tejido_;
 	}
 	
+	public void tejido(RejillaEntera tejido)
+	{
+		tejido_ = tejido;
+	}
+	
 	public void siguienteGeneracion()
 	{
 		for (int i = 0; i < tam_; ++i)

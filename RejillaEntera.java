@@ -133,4 +133,18 @@ public class RejillaEntera
 			System.err.println("Error: " + nombre + ".tmp: El fichero no existe y no puede ser creado");
 		}
 	}
+	
+	protected RejillaEntera clone()
+	{
+		RejillaEntera copia = new RejillaEntera(dimensiones_[0], dimensiones_[1]);
+		
+		for (int i = 0; i < dimensiones_[0]; ++i)
+			for (int j = 0; j < dimensiones_[1]; ++j)
+				copia.rejilla_[i][j] = rejilla_[i][j];
+				
+		copia.dimensiones_[0] = dimensiones_[0];
+		copia.dimensiones_[1] = dimensiones_[1];
+		
+		return copia;
+	}
 }
