@@ -45,7 +45,7 @@ public class Speedup
 		{
 			tumor.reiniciar();
 			for (int i = 0; i < maxTareas; ++i)
-				tumor.tejido().set(x[i], y[i], true);
+				tumor.revivir(x[i], y[i]);
 			
 			tumor.nucleos(n);
 			

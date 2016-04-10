@@ -3,10 +3,14 @@ public class Main
 	public static void main(String[] args)
 	{
 		TumorAutomata ca = new TumorAutomata(4000);
-		ca.tejido().set(500, 2500, true);
-		ca.tejido().set(1500, 2500, true);
-		ca.tejido().set(2500, 2500, true);
-		ca.tejido().set(3000, 2500, true);
+		//~ ca.tejido().set(500, 2500, true);
+		//~ ca.tejido().set(1500, 2500, true);
+		//~ ca.tejido().set(2500, 2500, true);
+		//~ ca.tejido().set(3000, 2500, true);
+		ca.revivir(500, 2500);
+		ca.revivir(1500, 2500);
+		ca.revivir(2500, 2500);
+		ca.revivir(3000, 2500);
 		ca.nucleos(4);
 		//~ ca.tejido().set(15, 14, true);
 		//~ ca.tejido().set(16, 14, true);

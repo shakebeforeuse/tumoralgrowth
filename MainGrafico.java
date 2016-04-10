@@ -56,7 +56,7 @@ public class MainGrafico
 		JLabel npText  = new JLabel("NP ");
 		
 		tam = new JTextField("400");
-		it  = new JTextField("25");
+		it  = new JTextField("1");
 		ps  = new JTextField("1.0");
 		pp  = new JTextField("0.25");
 		pm  = new JTextField("0.2");
@@ -117,8 +117,8 @@ public class MainGrafico
 				int    campoNP  = Integer.parseInt(np.getText());
 				
 				tumor = new TumorAutomata(campoTam, campoPs, campoPp, campoPm, campoNP);
-				tumor.tejido().set(campoTam / 2, campoTam / 2, true);
-				tumor.nucleos(Runtime.getRuntime().availableProcessors());
+				tumor.revivir(campoTam / 2, campoTam / 2);
+				//tumor.nucleos(Runtime.getRuntime().availableProcessors());
 				
 				if (picLabel == null)
 				{

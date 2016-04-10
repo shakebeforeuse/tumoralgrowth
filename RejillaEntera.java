@@ -7,18 +7,18 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import javax.imageio.ImageIO;
 
-public class RejillaBinaria
+public class RejillaEntera
 {
 	private int[][] rejilla_;
 	private int[]   dimensiones_;
 
-	RejillaBinaria(int xtam, int ytam)
+	RejillaEntera(int xtam, int ytam)
 	{
 		rejilla_     = new int[xtam][ytam];
 		dimensiones_ = new int[]{xtam, ytam};
 	}
 
-	boolean get(int x, int y)
+	int get(int x, int y)
 	{
 		//Si no existe devolveremos verdadero. Que en la frontera se
 		//asuman células tumorales no afecta al resultado, y de esta
@@ -29,12 +29,7 @@ public class RejillaBinaria
 		 && 0 <= y && y < dimensiones_[1])
 			celda = rejilla_[x][y];
 
-		return celda > 0;
-	}
-
-	void set(int x, int y, boolean v)
-	{
-		set(x, y, v? 1:0);
+		return celda;
 	}
 	
 	void set(int x, int y, int v)
@@ -63,29 +58,35 @@ public class RejillaBinaria
 		{
 			for (int j = 0; j < dimensiones_[1]; ++j)
 			{
-				if (rejilla_[i][j] == 0)
-					imagen.setRGB(j, i, Color.GRAY.getRGB());
-				else
+				int color = Color.BLUE.getRGB();
+				
+				switch (rejilla_[i][j])
 				{
-					int color;
+					case 0:
+						color = Color.GRAY.getRGB();
+						break;
 					
-					switch (rejilla_[i][j])
-					{
-						case 2:
-							color = Color.RED.getRGB();
-							break;
+					case 1:
+						color = Color.DARK_GRAY.getRGB();
+						break;
 						
-						case 3:
-							color = Color.GREEN.getRGB();
-							break;
+					case 2:
+						color = Color.BLACK.getRGB();
+						break;
+					
+					case 3:
+						color = Color.RED.getRGB();
+						break;
 						
-						default:
-							color = Color.BLACK.getRGB();
-					}
+					case 4:
+						color = Color.GREEN.getRGB();
+						break;
 					
-					imagen.setRGB(j, i, color);
-					
+					default:
+						color = Color.MAGENTA.getRGB();
 				}
+				
+				imagen.setRGB(j, i, color);
 			}
 		}
 		
