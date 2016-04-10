@@ -11,10 +11,12 @@ public class TumorAutomata implements Runnable
 	static public double pp;
 	static public double pm;
 	static public int    np;
+	static public int    rho;
 	
 	static private RejillaEntera tejido_;
+	static private int[][]  rhos_;
 	static private byte[][] generacion_;
-	static private int[][] ph_;
+	static private int[][]  ph_;
 	static private byte it_;
 	static private int tam_;
 	
@@ -28,15 +30,17 @@ public class TumorAutomata implements Runnable
 	private Runnable[] tareas_;
 	private static CyclicBarrier barrera_;
 	
-	private static Random random_;
+	private Random random_;
 
-	public TumorAutomata(int tam, double ps, double pp, double pm, int np)
+	public TumorAutomata(int tam, double ps, double pp, double pm, int np, int rho)
 	{
 		random_     = new Random();
 		tejido_     = new RejillaEntera(tam, tam);
+		rhos_       = new int[tam][tam];
 		generacion_ = new byte[tam][tam];
 		ph_         = new int[tam][tam];
 		tam_        = tam;
+		this.rho    = rho;
 		
 		poblacion_ = new AtomicLong(0);
 		
@@ -48,7 +52,7 @@ public class TumorAutomata implements Runnable
 	
 	public TumorAutomata(int tam)
 	{
-		this(tam, 1, .25, .2, 1);
+		this(tam, 1, .25, .2, 1, 5);
 	}
 	
 	private TumorAutomata(int inicio, int fin)
@@ -87,8 +91,6 @@ public class TumorAutomata implements Runnable
 
 	public void cambiarEstado(int x, int y, Estado e)
 	{
-		//tejido_[(it_ + 1) % 2].set(x, y, v);
-		//Mirar comentario en siguienteGeneracion
 		tejido_.set(x, y, e.ordinal());
 	}
 	
@@ -111,13 +113,17 @@ public class TumorAutomata implements Runnable
 							revivir(x+i, y+j);
 			
 			tejido_.set(x, y, Estado.MUERTA.ordinal());
+			rhos_[x][y] = 0;
 		}
 	}
 	
 	public void revivir(int x, int y)
 	{
 		if (verEstado(x, y) == Estado.MUERTA)
+		{
+			rhos_[x][y] = rho;
 			poblacion_.getAndIncrement();
+		}
 		
 		
 		//Se contempla la posibilidad de revivir incluso estando ya viva
@@ -125,11 +131,16 @@ public class TumorAutomata implements Runnable
 		tejido_.set(x, y, Estado.VIVA.ordinal());
 	}
 	
-	public void proliferar(int x, int y)
+	public void proliferar(int x1, int y1, int x2, int y2)
 	{
 		poblacion_.getAndIncrement();
-		tejido_.set(x, y, Estado.NUEVA.ordinal());
-		generacion_[x][y] = (byte)((it_ + 1) % 2);
+		tejido_.set(x2, y2, Estado.NUEVA.ordinal());
+		generacion_[x2][y2] = (byte)((it_ + 1) % 2);
+		
+		if (--rhos_[x1][y1] <= 0)
+			apoptosis(x1, y1);
+		
+		rhos_[x2][y2] = rho;
 	}
 	
 	public void migrar(int x1, int y1, int x2, int y2)
@@ -137,6 +148,9 @@ public class TumorAutomata implements Runnable
 		tejido_.set(x1, y1, Estado.MUERTA.ordinal());
 		tejido_.set(x2, y2, Estado.MIGRADA.ordinal());
 		generacion_[x2][y2] = (byte)((it_ + 1) % 2);
+		
+		rhos_[x2][y2] = rhos_[x1][y1];
+		rhos_[x1][y1] = 0;
 	}
 
 	void actualizarCelda(int x, int y)
@@ -212,7 +226,7 @@ public class TumorAutomata implements Runnable
 											//Proliferamos o migramos a la posición
 											//seleccionada
 											if (prolifera)
-												proliferar(x + i, y + j);
+												proliferar(x, y, x + i, y + j);
 											else
 												migrar(x, y, x + i, y + j);
 																					
@@ -308,6 +322,7 @@ public class TumorAutomata implements Runnable
 				try
 				{					
 					barrera_.await();
+					it_ = (byte)((it_ + 1) % 2);
 				}
 				catch (BrokenBarrierException e)
 				{

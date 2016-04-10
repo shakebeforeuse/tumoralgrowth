@@ -24,12 +24,13 @@ public class MainGrafico
 	private static JFrame frame;
 	private static JPanel panel;
 	private static JLabel picLabel;
-	private static JTextField tam; 
-	private static JTextField it;  
-	private static JTextField ps;  
-	private static JTextField pp;  
-	private static JTextField pm;  
-	private static JTextField np;  
+	private static JTextField tam;
+	private static JTextField it;
+	private static JTextField ps;
+	private static JTextField pp;
+	private static JTextField pm;
+	private static JTextField np;
+	private static JTextField rho;
 	
 	private static JButton ejecutar;
 	private static JButton parar;
@@ -45,7 +46,7 @@ public class MainGrafico
 		
 		
 		panel = new JPanel();
-		JPanel parametros = new JPanel(new GridLayout(7, 2));
+		JPanel parametros = new JPanel(new GridLayout(8, 2));
 		panel.add(parametros);
 		
 		JLabel tamText = new JLabel("Tamaño ");
@@ -54,13 +55,16 @@ public class MainGrafico
 		JLabel ppText  = new JLabel("Pp ");
 		JLabel pmText  = new JLabel("Pm ");
 		JLabel npText  = new JLabel("NP ");
+		JLabel rhoText = new JLabel("Rho Máx.");
 		
 		tam = new JTextField("400");
 		it  = new JTextField("1");
-		ps  = new JTextField("1.0");
-		pp  = new JTextField("0.25");
+		ps  = new JTextField("0.99");
+		pp  = new JTextField("0.4");
 		pm  = new JTextField("0.2");
-		np  = new JTextField("1");
+		np  = new JTextField("5");
+		rho = new JTextField("2");
+		
 		
 		ejecutar = new JButton("Ejecutar");
 		parar    = new JButton("Parar");
@@ -82,6 +86,9 @@ public class MainGrafico
 		
 		parametros.add(npText);
 		parametros.add(np);
+		
+		parametros.add(rhoText);
+		parametros.add(rho);
 		
 		parametros.add(ejecutar);
 		parametros.add(parar);
@@ -115,10 +122,11 @@ public class MainGrafico
 				double campoPp  = Double.parseDouble(pp.getText());
 				double campoPm  = Double.parseDouble(pm.getText());
 				int    campoNP  = Integer.parseInt(np.getText());
+				int    campoRho = Integer.parseInt(rho.getText());
 				
-				tumor = new TumorAutomata(campoTam, campoPs, campoPp, campoPm, campoNP);
+				tumor = new TumorAutomata(campoTam, campoPs, campoPp, campoPm, campoNP, campoRho);
 				tumor.revivir(campoTam / 2, campoTam / 2);
-				//tumor.nucleos(Runtime.getRuntime().availableProcessors());
+				tumor.nucleos(Runtime.getRuntime().availableProcessors());
 				
 				if (picLabel == null)
 				{
