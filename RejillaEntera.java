@@ -7,10 +7,17 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import javax.imageio.ImageIO;
 
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.Condition;
+
 public class RejillaEntera
 {
 	private int[][] rejilla_;
 	private int[]   dimensiones_;
+	
+	private ReentrantLock cerrojo_;
+	private Condition nadieLeyendo_;
+	private Condition nadieEscribiendo_;
 	
 	private volatile int lectores_;
 	private volatile boolean escribiendo_;
@@ -22,6 +29,10 @@ public class RejillaEntera
 		
 		lectores_    = 0;
 		escribiendo_ = false;
+		
+		cerrojo_          = new ReentrantLock();
+		nadieLeyendo_     = cerrojo_.newCondition();
+		nadieEscribiendo_ = cerrojo_.newCondition();
 	}
 
 	int get(int x, int y)
@@ -56,49 +67,83 @@ public class RejillaEntera
 	
 	
 	
-	synchronized void empezarLectura()
+	void empezarLectura()
 	{
-		while (escribiendo_)
-			try
-			{
-				wait();
-			}
-			catch (InterruptedException e)
-			{
-				System.err.println("Intentando empezar lectura: " + e.getMessage());
-			}
+		cerrojo_.lock();
 		
-		++lectores_;
-		//notifyAll();
+		try
+		{
+			while (escribiendo_)
+				nadieEscribiendo_.await();
+			
+			++lectores_;
+		}
+		catch (InterruptedException e)
+		{
+			System.out.println("Intentando empezar lectura: " + e.getMessage());
+		}
+		finally
+		{
+			cerrojo_.unlock();
+		}
 	}
 	
-	synchronized void terminarLectura()
+	void terminarLectura()
 	{
-		--lectores_;
+		cerrojo_.lock();
 		
-		if (lectores_ == 0)
-			notifyAll();
+		try
+		{
+			--lectores_;
+			
+			if (lectores_ == 0)
+				nadieLeyendo_.signalAll();
+		}
+		finally
+		{		
+			cerrojo_.unlock();
+		}
 	}
 	
-	synchronized void empezarEscritura()
+	void empezarEscritura()
 	{
-		while (escribiendo_ || lectores_ != 0)
-			try
-			{
-				wait();
-			}
-			catch (InterruptedException e)
-			{
-				System.err.println("Intentando empezar escritura: " + e.getMessage());
-			}
+		cerrojo_.lock();
 		
-		escribiendo_ = true;
+		try
+		{
+			while (escribiendo_ || lectores_ != 0)
+			{
+				if (escribiendo_)
+					nadieEscribiendo_.await();
+				else
+					nadieLeyendo_.await();
+			}
+			
+			escribiendo_ = true;
+		}
+		catch (InterruptedException e)
+		{
+			System.out.println("Intentando empezar lectura: " + e.getMessage());
+		}
+		finally
+		{	
+			cerrojo_.unlock();
+		}
 	}
 	
-	synchronized void terminarEscritura()
+	void terminarEscritura()
 	{
-		escribiendo_ = false;
-		notifyAll();
+		cerrojo_.lock();
+		
+		try
+		{
+			escribiendo_ = false;
+			nadieEscribiendo_.signalAll();
+		}
+		finally
+		{
+			cerrojo_.unlock();
+		}
 	}
 	
 	
