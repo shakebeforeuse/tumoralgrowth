@@ -5,6 +5,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 import java.util.Random;
 
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.Condition;
+
 enum Estado
 {
 	MUERTA, LATENTE, VIVA, NUEVA, MIGRADA;
@@ -64,7 +67,9 @@ public class TumorAutomata implements Runnable
 	private Random random_;
 	
 	private static int[] limites_;
-	private static Object[] cerrojos_;
+	private static ReentrantLock[] cerrojos_;
+	private static Condition[] nadieLeyendo_;
+	private static Condition[] nadieEscribiendo_;
 	private static volatile int[] lectores_;
 	private static volatile boolean[] escribiendo_;
 
@@ -113,10 +118,12 @@ public class TumorAutomata implements Runnable
 		barrera_    = new CyclicBarrier(nucleos_ + 1);
 		tareas_     = new Runnable[nucleos_];
 		
-		cerrojos_    = new Object[n];
-		lectores_    = new int[n];
-		escribiendo_ = new boolean[n];
-		limites_     = new int[n];
+		cerrojos_         = new ReentrantLock[n];
+		nadieEscribiendo_ = new Condition[n];
+		nadieLeyendo_     = new Condition[n];
+		lectores_         = new int[n];
+		escribiendo_      = new boolean[n];
+		limites_          = new int[n];
 		
 		for (int i = 0; i < nucleos_; ++i)
 		{
@@ -128,7 +135,10 @@ public class TumorAutomata implements Runnable
 			
 			tareas_[i]  = new TumorAutomata(inicioIntervalo, finIntervalo);
 			limites_[i] = finIntervalo;
-			cerrojos_[i] = new Object();
+			
+			cerrojos_[i]         = new ReentrantLock();
+			nadieEscribiendo_[i] = cerrojos_[i].newCondition();
+			nadieLeyendo_[i]     = cerrojos_[i].newCondition();
 		}
 	}
 	
@@ -145,19 +155,22 @@ public class TumorAutomata implements Runnable
 			//Comprobar que la coordenada esté dentro de los limites
 			if (particion != -1)
 			{
-				synchronized (cerrojos_[particion])
+				cerrojos_[particion].lock();
+				
+				try
 				{
 					while (escribiendo_[particion])
-						try
-						{
-							cerrojos_[particion].wait();
-						}
-						catch (InterruptedException e)
-						{
-							System.err.println("Intentando empezar lectura: " + e.getMessage());
-						}
+						nadieEscribiendo_[particion].await();
 					
 					++lectores_[particion];
+				}
+				catch (InterruptedException e)
+				{
+					System.err.println("Intentando empezar lectura: " + e.getMessage());
+				}
+				finally
+				{
+					cerrojos_[particion].unlock();
 				}
 			}
 		}
@@ -169,12 +182,18 @@ public class TumorAutomata implements Runnable
 	{
 		if (particion != -1)
 		{
-			synchronized (cerrojos_[particion])
+			cerrojos_[particion].lock();
+			
+			try
 			{
 				--lectores_[particion];
 				
 				if (lectores_[particion] == 0)
-					cerrojos_[particion].notifyAll();
+					nadieLeyendo_[particion].signalAll();
+			}
+			finally
+			{
+				cerrojos_[particion].unlock();
 			}
 		}
 	}
@@ -191,19 +210,25 @@ public class TumorAutomata implements Runnable
 			
 			if (particion != -1)
 			{
-				synchronized (cerrojos_[particion])
+				cerrojos_[particion].lock();
+				
+				try
 				{
 					while (escribiendo_[particion] || lectores_[particion] != 0)
-						try
-						{
-							cerrojos_[particion].wait();
-						}
-						catch (InterruptedException e)
-						{
-							System.err.println("Intentando empezar escritura: " + e.getMessage());
-						}
+						if (escribiendo_[particion])
+							nadieEscribiendo_[particion].await();
+						else
+							nadieLeyendo_[particion].await();
 					
 					escribiendo_[particion] = true;
+				}
+				catch (InterruptedException e)
+				{
+					System.err.println("Intentando empezar escritura: " + e.getMessage());
+				}
+				finally
+				{
+					cerrojos_[particion].unlock();
 				}
 			}
 		}
@@ -215,10 +240,17 @@ public class TumorAutomata implements Runnable
 	{
 		if (particion != -1)
 		{
-			synchronized (cerrojos_[particion])
+			cerrojos_[particion].lock();
+			
+			try
 			{
 				escribiendo_[particion] = false;
-				cerrojos_[particion].notifyAll();
+				
+				nadieEscribiendo_[particion].signalAll();
+			}
+			finally
+			{
+				cerrojos_[particion].unlock();
 			}
 		}
 	}
