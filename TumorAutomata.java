@@ -62,6 +62,11 @@ public class TumorAutomata implements Runnable
 	private static CyclicBarrier barrera_;
 	
 	private Random random_;
+	
+	private static int[] limites_;
+	private static Object[] cerrojos_;
+	private static volatile int[] lectores_;
+	private static volatile boolean[] escribiendo_;
 
 	public TumorAutomata(int tam, double ps, double pp, double pm, int np, int rho)
 	{
@@ -108,6 +113,11 @@ public class TumorAutomata implements Runnable
 		barrera_    = new CyclicBarrier(nucleos_ + 1);
 		tareas_     = new Runnable[nucleos_];
 		
+		cerrojos_    = new Object[n];
+		lectores_    = new int[n];
+		escribiendo_ = new boolean[n];
+		limites_     = new int[n];
+		
 		for (int i = 0; i < nucleos_; ++i)
 		{
 			int inicioIntervalo = i       * (tam_ / nucleos_);
@@ -116,18 +126,124 @@ public class TumorAutomata implements Runnable
 			if ((i + 1) == nucleos_)
 				finIntervalo = tam_;
 			
-			tareas_[i] = new TumorAutomata(inicioIntervalo, finIntervalo);
+			tareas_[i]  = new TumorAutomata(inicioIntervalo, finIntervalo);
+			limites_[i] = finIntervalo;
+			cerrojos_[i] = new Object();
+		}
+	}
+	
+	int empezarLectura(int x)
+	{
+		int particion = -1;
+		
+		if (limites_ != null)
+		{
+			for (int i = 0; i < nucleos_ && particion == -1; ++i)
+				if (x < limites_[i])
+					particion = i;
+			
+			//Comprobar que la coordenada esté dentro de los limites
+			if (particion != -1)
+			{
+				synchronized (cerrojos_[particion])
+				{
+					while (escribiendo_[particion])
+						try
+						{
+							cerrojos_[particion].wait();
+						}
+						catch (InterruptedException e)
+						{
+							System.err.println("Intentando empezar lectura: " + e.getMessage());
+						}
+					
+					++lectores_[particion];
+				}
+			}
+		}
+		
+		return particion;
+	}
+	
+	void terminarLectura(int particion)
+	{
+		if (particion != -1)
+		{
+			synchronized (cerrojos_[particion])
+			{
+				--lectores_[particion];
+				
+				if (lectores_[particion] == 0)
+					cerrojos_[particion].notifyAll();
+			}
+		}
+	}
+	
+	int empezarEscritura(int x)
+	{
+		int particion = -1;
+		
+		if (limites_ != null)
+		{
+			for (int i = 0; i < nucleos_ && particion == -1; ++i)
+				if (x < limites_[i])
+					particion = i;
+			
+			if (particion != -1)
+			{
+				synchronized (cerrojos_[particion])
+				{
+					while (escribiendo_[particion] || lectores_[particion] != 0)
+						try
+						{
+							cerrojos_[particion].wait();
+						}
+						catch (InterruptedException e)
+						{
+							System.err.println("Intentando empezar escritura: " + e.getMessage());
+						}
+					
+					escribiendo_[particion] = true;
+				}
+			}
+		}
+		
+		return particion;
+	}
+	
+	void terminarEscritura(int particion)
+	{
+		if (particion != -1)
+		{
+			synchronized (cerrojos_[particion])
+			{
+				escribiendo_[particion] = false;
+				cerrojos_[particion].notifyAll();
+			}
 		}
 	}
 
 	public void cambiarEstado(int x, int y, Estado e)
 	{
+		int p = empezarEscritura(x);
+		
 		tejido_.set(x, y, e.ordinal());
+		
+		terminarEscritura(p);
 	}
 	
 	public Estado verEstado(int x, int y)
 	{
-		return Estado.fromInteger(tejido_.get(x, y));
+		int p = empezarLectura(x);
+		
+		try
+		{
+			return Estado.fromInteger(tejido_.get(x, y));
+		}
+		finally
+		{
+			terminarLectura(p);
+		}
 	}
 	
 	public void apoptosis(int x, int y)
@@ -141,9 +257,9 @@ public class TumorAutomata implements Runnable
 				for (int j = -1; j <= 1; ++j)
 					if (i != 0 || j != 0)
 						if (verEstado(x+i, y+j) == Estado.LATENTE)
-							tejido_.set(x+i, y+j, Estado.VIVA.ordinal());
+							cambiarEstado(x+i, y+j, Estado.VIVA);
 			
-			tejido_.set(x, y, Estado.MUERTA.ordinal());
+			cambiarEstado(x, y, Estado.MUERTA);
 			rhos_[x][y] = 0;
 		}
 	}
@@ -159,7 +275,7 @@ public class TumorAutomata implements Runnable
 		
 		//Se contempla la posibilidad de revivir incluso estando ya viva
 		//por si acaso estaba LATENTE, MIGRADA o NUEVA
-		tejido_.set(x, y, Estado.VIVA.ordinal());
+		cambiarEstado(x, y, Estado.VIVA);
 	}
 	
 	public void proliferar(int x1, int y1, int x2, int y2)
@@ -167,11 +283,11 @@ public class TumorAutomata implements Runnable
 		if (verEstado(x2, y2) == Estado.MUERTA)
 		{
 			poblacion_.getAndIncrement();
-			tejido_.set(x2, y2, Estado.NUEVA.ordinal());
+			cambiarEstado(x2, y2, Estado.NUEVA);
 			generacion_[x2][y2] = (byte)((it_ + 1) % 2);
 			
 			if (--rhos_[x1][y1] <= 0)
-				tejido_.set(x1, y1, Estado.MUERTA.ordinal());
+				cambiarEstado(x1, y1, Estado.MUERTA);
 			
 			rhos_[x2][y2] = rho;
 		}
@@ -179,8 +295,8 @@ public class TumorAutomata implements Runnable
 	
 	public void migrar(int x1, int y1, int x2, int y2)
 	{
-		tejido_.set(x1, y1, Estado.MUERTA.ordinal());
-		tejido_.set(x2, y2, Estado.MIGRADA.ordinal());
+		cambiarEstado(x1, y1, Estado.MUERTA);
+		cambiarEstado(x2, y2, Estado.MIGRADA);
 		generacion_[x2][y2] = (byte)((it_ + 1) % 2);
 		
 		rhos_[x2][y2] = rhos_[x1][y1];
