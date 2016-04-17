@@ -141,7 +141,7 @@ public class TumorAutomata implements Runnable
 				for (int j = -1; j <= 1; ++j)
 					if (i != 0 || j != 0)
 						if (verEstado(x+i, y+j) == Estado.LATENTE)
-							revivir(x+i, y+j);
+							tejido_.set(x+i, y+j, Estado.VIVA.ordinal());
 			
 			tejido_.set(x, y, Estado.MUERTA.ordinal());
 			rhos_[x][y] = 0;
@@ -164,14 +164,17 @@ public class TumorAutomata implements Runnable
 	
 	public void proliferar(int x1, int y1, int x2, int y2)
 	{
-		poblacion_.getAndIncrement();
-		tejido_.set(x2, y2, Estado.NUEVA.ordinal());
-		generacion_[x2][y2] = (byte)((it_ + 1) % 2);
-		
-		if (--rhos_[x1][y1] <= 0)
-			apoptosis(x1, y1);
-		
-		rhos_[x2][y2] = rho;
+		if (verEstado(x2, y2) == Estado.MUERTA)
+		{
+			poblacion_.getAndIncrement();
+			tejido_.set(x2, y2, Estado.NUEVA.ordinal());
+			generacion_[x2][y2] = (byte)((it_ + 1) % 2);
+			
+			if (--rhos_[x1][y1] <= 0)
+				tejido_.set(x1, y1, Estado.MUERTA.ordinal());
+			
+			rhos_[x2][y2] = rho;
+		}
 	}
 	
 	public void migrar(int x1, int y1, int x2, int y2)
@@ -186,7 +189,9 @@ public class TumorAutomata implements Runnable
 
 	void actualizarCelda(int x, int y)
 	{
+		//~ tejido_.empezarLectura();
 		Estado estadoActual = verEstado(x, y);
+		//~ tejido_.terminarLectura();
 		
 		//Si está muerta no hacemos nada. Si está latente, comprobamos
 		//únicamente si muere espontáneamente, pero nada más
@@ -195,17 +200,19 @@ public class TumorAutomata implements Runnable
 		if (estadoActual != Estado.MUERTA)
 		{			
 			if (generacion_[x][y] == it_)
-			{		
+			{
 				//Comprobar si sobrevive
 				if (comprobarSupervivencia())
-				{	
+				{
 					//Sobrevive.
 					if (estadoActual != Estado.LATENTE)
 					{
 						//Solo tiene sentido si se trabaja con dos matrices para
 						//no mezclar generaciones, o si se usa la interfaz
 						//multicolor.
+						//~ tejido_.empezarEscritura();
 						revivir(x, y);
+						//~ tejido_.terminarEscritura();
 						
 						//No está latente. Comprobar si prolifera o migra.
 						boolean prolifera = comprobarProliferacion(x, y);
@@ -219,6 +226,7 @@ public class TumorAutomata implements Runnable
 							float[] p = new float[8];
 							
 							//Calcular la cantidad de células vivas vecina
+							//~ tejido_.empezarLectura();
 							for (int i = -1; i <= 1; ++i)
 								for (int j = -1; j <= 1; ++j)
 									if (i != 0 || j != 0)
@@ -228,6 +236,7 @@ public class TumorAutomata implements Runnable
 										denominador += n[cont++];
 										//System.out.println(verEstado(x+i, y+j).ordinal());
 									}
+							//~ tejido_.terminarLectura();
 							
 							//Si el denominador es 0, implica que todas las
 							//células vecinas están vivas. En ese caso, la
@@ -236,8 +245,7 @@ public class TumorAutomata implements Runnable
 								cambiarEstado(x, y, Estado.LATENTE);
 							else
 							{
-								//TODO: Fusionar bucles
-								
+								//~ tejido_.empezarEscritura();							
 								//Calcular la probabilidad de proliferar o
 								//migrar a cada celda vecina
 								p[0] = n[0]/denominador;
@@ -265,13 +273,18 @@ public class TumorAutomata implements Runnable
 										}
 										//System.out.println(p[cont-1]);
 									}
+								//~ tejido_.terminarEscritura();
 							}
 						}
 					}
 				}
 				else
+				{
 					//No sobrevive
+					//~ tejido_.empezarEscritura();
 					apoptosis(x, y);
+					//~ tejido_.terminarEscritura();
+				}
 			}
 			else
 				generacion_[x][y] = (byte)((it_ + 1) % 2);

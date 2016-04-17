@@ -11,11 +11,17 @@ public class RejillaEntera
 {
 	private int[][] rejilla_;
 	private int[]   dimensiones_;
+	
+	private volatile int lectores_;
+	private volatile boolean escribiendo_;
 
 	RejillaEntera(int xtam, int ytam)
 	{
 		rejilla_     = new int[xtam][ytam];
 		dimensiones_ = new int[]{xtam, ytam};
+		
+		lectores_    = 0;
+		escribiendo_ = false;
 	}
 
 	int get(int x, int y)
@@ -27,7 +33,11 @@ public class RejillaEntera
 		int celda = 1;
 		if (0 <= x && x < dimensiones_[0]
 		 && 0 <= y && y < dimensiones_[1])
+		{
+			empezarLectura();
 			celda = rejilla_[x][y];
+			terminarLectura();
+		}
 
 		return celda;
 	}
@@ -36,8 +46,62 @@ public class RejillaEntera
 	{
 		if (0 <= x && x < dimensiones_[0]
 		 && 0 <= y && y < dimensiones_[1])
+		{
+			empezarEscritura();
 			rejilla_[x][y] = v;
+			terminarEscritura();
+		}
 	}
+	
+	
+	
+	
+	synchronized void empezarLectura()
+	{
+		while (escribiendo_)
+			try
+			{
+				wait();
+			}
+			catch (InterruptedException e)
+			{
+				System.err.println("Intentando empezar lectura: " + e.getMessage());
+			}
+		
+		++lectores_;
+		//notifyAll();
+	}
+	
+	synchronized void terminarLectura()
+	{
+		--lectores_;
+		
+		if (lectores_ == 0)
+			notifyAll();
+	}
+	
+	synchronized void empezarEscritura()
+	{
+		while (escribiendo_ || lectores_ != 0)
+			try
+			{
+				wait();
+			}
+			catch (InterruptedException e)
+			{
+				System.err.println("Intentando empezar escritura: " + e.getMessage());
+			}
+		
+		escribiendo_ = true;
+	}
+	
+	synchronized void terminarEscritura()
+	{
+		escribiendo_ = false;
+		notifyAll();
+	}
+	
+	
 	
 	BufferedImage imagen()
 	{
