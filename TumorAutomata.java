@@ -141,7 +141,7 @@ public class TumorAutomata implements Runnable
 				for (int j = -1; j <= 1; ++j)
 					if (i != 0 || j != 0)
 						if (verEstado(x+i, y+j) == Estado.LATENTE)
-							revivir(x+i, y+j);
+							tejido_.set(x+i, y+j, Estado.VIVA.ordinal());
 			
 			tejido_.set(x, y, Estado.MUERTA.ordinal());
 			rhos_[x][y] = 0;
@@ -164,14 +164,17 @@ public class TumorAutomata implements Runnable
 	
 	public void proliferar(int x1, int y1, int x2, int y2)
 	{
-		poblacion_.getAndIncrement();
-		tejido_.set(x2, y2, Estado.NUEVA.ordinal());
-		generacion_[x2][y2] = (byte)((it_ + 1) % 2);
-		
-		if (--rhos_[x1][y1] <= 0)
-			apoptosis(x1, y1);
-		
-		rhos_[x2][y2] = rho;
+		if (verEstado(x2, y2) == Estado.MUERTA)
+		{
+			poblacion_.getAndIncrement();
+			tejido_.set(x2, y2, Estado.NUEVA.ordinal());
+			generacion_[x2][y2] = (byte)((it_ + 1) % 2);
+			
+			if (--rhos_[x1][y1] <= 0)
+				tejido_.set(x1, y1, Estado.MUERTA.ordinal());
+			
+			rhos_[x2][y2] = rho;
+		}
 	}
 	
 	public void migrar(int x1, int y1, int x2, int y2)
@@ -195,10 +198,10 @@ public class TumorAutomata implements Runnable
 		if (estadoActual != Estado.MUERTA)
 		{			
 			if (generacion_[x][y] == it_)
-			{		
+			{
 				//Comprobar si sobrevive
 				if (comprobarSupervivencia())
-				{	
+				{
 					//Sobrevive.
 					if (estadoActual != Estado.LATENTE)
 					{
@@ -235,9 +238,7 @@ public class TumorAutomata implements Runnable
 							if (denominador == 0)
 								cambiarEstado(x, y, Estado.LATENTE);
 							else
-							{
-								//TODO: Fusionar bucles
-								
+							{						
 								//Calcular la probabilidad de proliferar o
 								//migrar a cada celda vecina
 								p[0] = n[0]/denominador;
@@ -270,8 +271,10 @@ public class TumorAutomata implements Runnable
 					}
 				}
 				else
+				{
 					//No sobrevive
 					apoptosis(x, y);
+				}
 			}
 			else
 				generacion_[x][y] = (byte)((it_ + 1) % 2);
