@@ -1,57 +1,32 @@
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.Random;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
-import java.util.Random;
+import java.util.concurrent.locks.ReentrantLock;
 
-enum Estado
-{
-	MUERTA, LATENTE, VIVA, NUEVA, MIGRADA;
-	
-	public static Estado fromInteger(int i)
-	{
-		Estado e = MUERTA;
-		
-		switch (i)
-		{
-			case 1:
-				e = LATENTE;
-				break;
-			
-			case 2:
-				e = VIVA;
-				break;
-			
-			case 3:
-				e = NUEVA;
-				break;
-				
-			case 4:
-				e = MIGRADA;
-				break;
-		}
-		
-		return e;
-	}
-}
+import java.awt.Color;
+import java.awt.image.BufferedImage;
+import java.awt.Image;
 
 public class TumorAutomata implements Runnable
 {
-	static public double ps;
-	static public double pp;
-	static public double pm;
-	static public int    np;
-	static public int    rho;
+	public static final int MUERTA = 0, LATENTE = 1, VIVA = 2, NUEVA = 3, MIGRADA = 4;
 	
-	static private RejillaEntera tejido_;
-	static private int[][]  rhos_;
-	static private byte[][] generacion_;
-	static private int[][]  ph_;
-	static private byte it_;
-	static private int tam_;
+	public static double ps;
+	public static double pp;
+	public static double pm;
+	public static int    np;
+	public static int    rho;
 	
-	private static AtomicLong poblacion_;
+	private static int[][]  tejido_;
+	private static int[][]  rhos_;
+	private static byte[][] generacion_;
+	private static int[][]  ph_;
+	private static byte it_;
+	private static int  tam_;
+	
+	//~ private static AtomicLong poblacion_;
 	private int inicio_;
 	private int fin_;
 	private static int pasos_;
@@ -60,37 +35,26 @@ public class TumorAutomata implements Runnable
 	private ExecutorService threadPool_;
 	private Runnable[] tareas_;
 	private static CyclicBarrier barrera_;
+	private static ReentrantLock cerrojo_;
 	
-	private Random random_;
-
-	public TumorAutomata(int tam, double ps, double pp, double pm, int np, int rho)
-	{
-		random_     = new Random();
-		tejido_     = new RejillaEntera(tam, tam);
-		rhos_       = new int[tam][tam];
-		generacion_ = new byte[tam][tam];
-		ph_         = new int[tam][tam];
-		tam_        = tam;
-		this.rho    = rho;
-		
-		poblacion_ = new AtomicLong(0);
-		
-		this.ps = ps;
-		this.pp = pp;
-		this.pm = pm;
-		this.np = np;
-	}
+	private Random random_;	
 	
 	public TumorAutomata(int tam)
 	{
-		this(tam, 1, .25, .2, 1, 5);
+		tam_        = tam;
+		tejido_     = new int[tam][tam];
+		ph_         = new int[tam][tam];
+		rhos_       = new int[tam][tam];
+		generacion_ = new byte[tam][tam];
+		random_     = new Random();
+		cerrojo_    = new ReentrantLock();
 	}
 	
 	private TumorAutomata(int inicio, int fin)
 	{
+		random_ = new Random();
 		inicio_ = inicio;
 		fin_    = fin;
-		random_ = new Random();
 	}
 	
 	public void terminar()
@@ -119,236 +83,19 @@ public class TumorAutomata implements Runnable
 			tareas_[i] = new TumorAutomata(inicioIntervalo, finIntervalo);
 		}
 	}
-
-	public void cambiarEstado(int x, int y, Estado e)
-	{
-		tejido_.set(x, y, e.ordinal());
-	}
-	
-	public Estado verEstado(int x, int y)
-	{
-		return Estado.fromInteger(tejido_.get(x, y));
-	}
-	
-	public void apoptosis(int x, int y)
-	{
-		if (verEstado(x, y) != Estado.MUERTA)
-		{
-			poblacion_.getAndDecrement();
-			
-			//Notificar a las células vecinas latentes
-			for (int i = -1; i <= 1; ++i)
-				for (int j = -1; j <= 1; ++j)
-					if (i != 0 || j != 0)
-						if (verEstado(x+i, y+j) == Estado.LATENTE)
-							tejido_.set(x+i, y+j, Estado.VIVA.ordinal());
-			
-			tejido_.set(x, y, Estado.MUERTA.ordinal());
-			rhos_[x][y] = 0;
-		}
-	}
-	
-	public void revivir(int x, int y)
-	{
-		if (verEstado(x, y) == Estado.MUERTA)
-		{
-			rhos_[x][y] = rho;
-			poblacion_.getAndIncrement();
-		}
-		
-		
-		//Se contempla la posibilidad de revivir incluso estando ya viva
-		//por si acaso estaba LATENTE, MIGRADA o NUEVA
-		tejido_.set(x, y, Estado.VIVA.ordinal());
-	}
-	
-	public void proliferar(int x1, int y1, int x2, int y2)
-	{
-		if (verEstado(x2, y2) == Estado.MUERTA)
-		{
-			poblacion_.getAndIncrement();
-			tejido_.set(x2, y2, Estado.NUEVA.ordinal());
-			generacion_[x2][y2] = (byte)((it_ + 1) % 2);
-			
-			if (--rhos_[x1][y1] <= 0)
-				tejido_.set(x1, y1, Estado.MUERTA.ordinal());
-			
-			rhos_[x2][y2] = rho;
-		}
-	}
-	
-	public void migrar(int x1, int y1, int x2, int y2)
-	{
-		tejido_.set(x1, y1, Estado.MUERTA.ordinal());
-		tejido_.set(x2, y2, Estado.MIGRADA.ordinal());
-		generacion_[x2][y2] = (byte)((it_ + 1) % 2);
-		
-		rhos_[x2][y2] = rhos_[x1][y1];
-		rhos_[x1][y1] = 0;
-	}
-
-	void actualizarCelda(int x, int y)
-	{
-		Estado estadoActual = verEstado(x, y);
-		
-		//Si está muerta no hacemos nada. Si está latente, comprobamos
-		//únicamente si muere espontáneamente, pero nada más
-		//Si están recién creadas, tampoco deberían procesarse, pero sí
-		//aumentar su edad .
-		if (estadoActual != Estado.MUERTA)
-		{			
-			if (generacion_[x][y] == it_)
-			{
-				//Comprobar si sobrevive
-				if (comprobarSupervivencia())
-				{
-					//Sobrevive.
-					if (estadoActual != Estado.LATENTE)
-					{
-						//Solo tiene sentido si se trabaja con dos matrices para
-						//no mezclar generaciones, o si se usa la interfaz
-						//multicolor.
-						revivir(x, y);
-						
-						//No está latente. Comprobar si prolifera o migra.
-						boolean prolifera = comprobarProliferacion(x, y);
-
-						if (prolifera || comprobarMigracion(x, y))
-						{
-							//Actualizar posiciones
-							float denominador =  0;
-							int cont  = 0;
-							int[] n   = new int[8];
-							float[] p = new float[8];
-							
-							//Calcular la cantidad de células vivas vecina
-							for (int i = -1; i <= 1; ++i)
-								for (int j = -1; j <= 1; ++j)
-									if (i != 0 || j != 0)
-									{
-										//n[cont] = !tejido_.get(x+i, y+j) ? 1:0;
-										n[cont] = verEstado(x+i, y+j) == Estado.MUERTA ? 1:0;
-										denominador += n[cont++];
-										//System.out.println(verEstado(x+i, y+j).ordinal());
-									}
-							
-							//Si el denominador es 0, implica que todas las
-							//células vecinas están vivas. En ese caso, la
-							//marcamos como LATENTE y no hacemos nada más.
-							if (denominador == 0)
-								cambiarEstado(x, y, Estado.LATENTE);
-							else
-							{						
-								//Calcular la probabilidad de proliferar o
-								//migrar a cada celda vecina
-								p[0] = n[0]/denominador;
-								for (int i = 1; i < 8; ++i)
-									p[i] = n[i]/denominador + p[i-1];
-								
-								//Seleccionamos posición aleatoriamente
-								float r = random_.nextFloat();
-								
-								cont = 0;
-								boolean continuar = true;
-								for (int i = -1; i <= 1 && continuar; ++i)
-									for (int j = -1; j <= 1 && continuar; ++j)
-									{
-										if ((i != 0 || j != 0) && r < p[cont++])
-										{
-											//Proliferamos o migramos a la posición
-											//seleccionada
-											if (prolifera)
-												proliferar(x, y, x + i, y + j);
-											else
-												migrar(x, y, x + i, y + j);
-																					
-											continuar = false;
-										}
-										//System.out.println(p[cont-1]);
-									}
-							}
-						}
-					}
-				}
-				else
-				{
-					//No sobrevive
-					apoptosis(x, y);
-				}
-			}
-			else
-				generacion_[x][y] = (byte)((it_ + 1) % 2);
-		}
-	}
-
-	boolean comprobarSupervivencia()
-	{
-		return random_.nextDouble() < ps;
-	}
-
-	boolean comprobarVecindadLibre(int x, int y)
-	{
-		return verEstado(x, y) != Estado.LATENTE;
-	}
-
-	boolean comprobarProliferacion(int x, int y)
-	{
-		boolean prolifera = false;
-
-		if (random_.nextDouble() < pp)
-		{
-			++ph_[x][y];
-
-			//Si hay suficientes señales para proliferar y hay al menos
-			//un hueco libre en la vecindad, se prolifera
-			prolifera = ph_[x][y] >= np && comprobarVecindadLibre(x, y);
-		}
-
-		return prolifera;
-	}
-
-	boolean comprobarMigracion(int x, int y)
-	{
-		return random_.nextDouble() < pm && comprobarVecindadLibre(x, y);
-	}
-
-	public int size()
-	{
-		return tam_;
-	}
-	
-	public RejillaEntera tejido()
-	{
-		return tejido_;
-	}
-	
-	public void tejido(RejillaEntera tejido)
-	{
-		tejido_ = tejido;
-	}
-	
-	public void siguienteGeneracion()
-	{
-		for (int i = 0; i < tam_; ++i)
-			for (int j = 0; j < tam_; ++j)
-				actualizarCelda(i, j);
-		/*
-		 * ¿Tiene sentido realmente no sobreescribir la matriz que
-		 * leemos? Si la célula vive o no, no depende de la vecindad 
-		 * sino de probabilidades. La proliferación y la migración
-		 * dependen de los huecos. Si una célula decide proliferar a una
-		 * celda vecina, una célula aledaña no podrá migrar allí. Para
-		 * ello hay que contemplar los cambios que se están haciendo en
-		 * tiempo real
-		 */
-		it_ = (byte)((it_ + 1) % 2);
-	}
 	
 	public void ejecutar(int nGeneraciones)
 	{
+		//Si no hay pool de threads, ejecutar secuencialmente
 		if (threadPool_ == null)
-			for (int i = 0; i < nGeneraciones; ++i)
-				siguienteGeneracion();
+			for (int k = 0; k < nGeneraciones; ++k)
+			{
+				for (int i = 0; i < tam_; ++i)
+					for (int j = 0; j < tam_; ++j)
+						actualizarCelda(i, j);
+				
+				it_ = (byte)((it_ + 1) % 2);		
+			}
 		else
 		{
 			pasos_ = nGeneraciones;
@@ -398,13 +145,155 @@ public class TumorAutomata implements Runnable
 		}
 	}
 	
-	protected void finalize()
+	void reiniciar()
 	{
-		this.terminar();
+		tejido_     = new int[tam_][tam_];
+		ph_         = new int[tam_][tam_];
+		rhos_       = new int[tam_][tam_];
+		generacion_ = new byte[tam_][tam_];
+		it_         = 0;
 	}
 	
-	public void reiniciar()
+	int verEstado(int x, int y)
 	{
-		tejido_ = new RejillaEntera(tam_, tam_);
+		if (0 <= x && x < tam_ && 0 <= y && y < tam_)
+			return tejido_[x][y];
+
+		return LATENTE;
+	}
+	
+	void cambiarEstado(int x, int y, int v)
+	{
+		if (0 <= x && x < tam_ && 0 <= y && y < tam_)
+			tejido_[x][y] = v;
+	}
+	
+	public void actualizarCelda(int x, int y)
+	{
+		//Comprobar si está viva y debe procesarse (generacion actual)
+		if (verEstado(x, y) != MUERTA && generacion_[x][y] == it_)
+		{
+			generacion_[x][y] = (byte)((it_ + 1) % 2);
+			
+			//Comprobar si sobrevive
+			if (random_.nextFloat() < ps)
+			{
+				//Si está latente, no hacemos nada
+				if (verEstado(x, y) != LATENTE)
+				{
+					//Para el color
+					cambiarEstado(x, y, VIVA);
+					
+					//Comprobar si prolifera
+					boolean prolifera = random_.nextFloat() < pp && ++ph_[x][y] >= np;
+					
+					//Si prolifera o migra
+					if (prolifera || random_.nextFloat() < pm)
+					{
+						//Calcular dirección
+						float denominador =  0;
+						
+						int[] n   = new int[8];
+						float[] p = new float[8];
+						
+						if (x == inicio_ || x == fin_)
+							cerrojo_.lock();
+						
+						//Calcular la cantidad de células vivas vecina			
+						n[0] = verEstado(x - 1, y - 1) == MUERTA ? 1:0;
+						n[1] = verEstado(x - 1, y)     == MUERTA ? 1:0;
+						n[2] = verEstado(x - 1, y + 1) == MUERTA ? 1:0;
+						n[3] = verEstado(x, y - 1)     == MUERTA ? 1:0;
+						n[4] = verEstado(x, y + 1)     == MUERTA ? 1:0;
+						n[5] = verEstado(x + 1, y - 1) == MUERTA ? 1:0;
+						n[6] = verEstado(x + 1, y)     == MUERTA ? 1:0;
+						n[7] = verEstado(x + 1, y + 1) == MUERTA ? 1:0;
+						
+						denominador = n[0] + n[1] + n[2] + n[3] + n[4] + n[5] + n[6] + n[7];
+						
+						
+						//~ //Si el denominador es 0, implica que todas las
+						//~ //células vecinas están vivas. En ese caso, la
+						//~ //marcamos como LATENTE y no hacemos nada más.
+						if (denominador == 0)
+							cambiarEstado(x, y, LATENTE);
+						else
+						//~ if (denominador != 0)
+						{
+							//Calcular la probabilidad de proliferar o
+							//migrar a cada celda vecina
+							p[0] = n[0]/denominador;
+							p[1] = n[1]/denominador + p[0];
+							p[2] = n[2]/denominador + p[1];
+							p[3] = n[3]/denominador + p[2];
+							p[4] = n[4]/denominador + p[3];
+							p[5] = n[5]/denominador + p[4];
+							p[6] = n[6]/denominador + p[5];
+							p[7] = n[7]/denominador + p[6];
+							
+							
+							//Seleccionamos posición aleatoriamente
+							float r = random_.nextFloat();
+							
+							int cont = 0;
+							boolean continuar = true;
+							for (int i = -1; i <= 1 && continuar; ++i)
+								for (int j = -1; j <= 1 && continuar; ++j)
+									if ((i != 0 || j != 0) && r < p[cont++])
+									{
+										if (x+i == inicio_ || x+i == fin_)
+											cerrojo_.lock();
+											
+										//Proliferamos o migramos a la posición
+										//seleccionada
+										if (prolifera)
+										{										
+											cambiarEstado(x + i, y + j, NUEVA);
+											
+											rhos_[x+i][y+j] = rho;
+											if (--rhos_[x][y] == 0)
+												cambiarEstado(x, y, MUERTA);
+										}
+										else
+										{
+											cambiarEstado(x, y, MUERTA);
+											cambiarEstado(x + i, y + j, MIGRADA);
+											
+											rhos_[x+i][y+j] = rhos_[x][y];
+											rhos_[x][y]     = 0;
+										}
+										
+										//Marcamos la posición seleccionada para ser
+										//procesada en la siguiente generación
+										generacion_[x+i][y+j] = (byte)((it_ + 1) % 2);
+											
+										continuar = false;
+										
+										if (x+i == inicio_ || x+i == fin_)
+											cerrojo_.unlock();
+									}
+						}
+						
+						if (x == inicio_ || x == fin_)
+							cerrojo_.unlock();
+					}
+				}
+			}
+			else
+			{
+				if (x == inicio_ || x == fin_)
+					cerrojo_.lock();
+							
+				cambiarEstado(x, y, MUERTA);
+				
+				for (int i = -1; i <= 1; ++i)
+					for (int j = -1; j <= 1; ++j)
+						if ((i != 0 || j != 0) && verEstado(x+i, y+j) == LATENTE)
+							cambiarEstado(x+i, y+j, VIVA);
+				
+				if (x == inicio_ || x == fin_)
+					cerrojo_.unlock();
+			}
+		}
 	}
 }

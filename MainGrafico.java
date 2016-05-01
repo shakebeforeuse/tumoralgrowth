@@ -38,6 +38,14 @@ public class MainGrafico
 	private static SwingWorker worker;
 	private static boolean finalizar;
 	
+	private static int    campoTam; 
+	private static int    campoIt; 
+	private static double campoPs; 
+	private static double campoPp; 
+	private static double campoPm; 
+	private static int    campoNP; 
+	private static int    campoRho; 
+	
 	private static void GUI()
 	{
 		//Create and set up the window.
@@ -103,6 +111,50 @@ public class MainGrafico
 		frame.setVisible(true);
 	}
 	
+	//Métodos para debug
+	static BufferedImage imagenColor()
+	{
+		BufferedImage imagen = new BufferedImage(campoTam, campoTam, BufferedImage.TYPE_INT_RGB);
+		
+		for (int i = 0; i < campoTam; ++i)
+		{
+			for (int j = 0; j < campoTam; ++j)
+			{
+				int color = Color.BLUE.getRGB();
+				
+				switch (tumor.verEstado(i, j))
+				{
+					case 0:
+						color = Color.GRAY.getRGB();
+						break;
+					
+					case 1:
+						color = Color.DARK_GRAY.getRGB();
+						break;
+						
+					case 2:
+						color = Color.BLACK.getRGB();
+						break;
+					
+					case 3:
+						color = Color.RED.getRGB();
+						break;
+						
+					case 4:
+						color = Color.GREEN.getRGB();
+						break;
+					
+					default:
+						color = Color.MAGENTA.getRGB();
+				}
+				
+				imagen.setRGB(j, i, color);
+			}
+		}
+		
+		return imagen;
+	}
+	
 	public static void main(String[] args) throws Exception
 	{
 		finalizar = false;
@@ -116,25 +168,31 @@ public class MainGrafico
 				while (worker != null && !worker.isDone())
 					finalizar = true;
 				
-				int    campoTam = Integer.parseInt(tam.getText());
-				int    campoIt  = Integer.parseInt(it.getText());
-				double campoPs  = Double.parseDouble(ps.getText());
-				double campoPp  = Double.parseDouble(pp.getText());
-				double campoPm  = Double.parseDouble(pm.getText());
-				int    campoNP  = Integer.parseInt(np.getText());
-				int    campoRho = Integer.parseInt(rho.getText());
+				campoTam = Integer.parseInt(tam.getText());
+				campoIt  = Integer.parseInt(it.getText());
+				campoPs  = Double.parseDouble(ps.getText());
+				campoPp  = Double.parseDouble(pp.getText());
+				campoPm  = Double.parseDouble(pm.getText());
+				campoNP  = Integer.parseInt(np.getText());
+				campoRho = Integer.parseInt(rho.getText());
 				
-				tumor = new TumorAutomata(campoTam, campoPs, campoPp, campoPm, campoNP, campoRho);
-				tumor.revivir(campoTam / 2, campoTam / 2);
+				tumor = new TumorAutomata(campoTam);
+				tumor.ps  = campoPs;
+				tumor.pp  = campoPp;
+				tumor.pm  = campoPm;
+				tumor.np  = campoNP;
+				tumor.rho = campoRho;
+				
+				tumor.cambiarEstado(campoTam / 2, campoTam / 2, TumorAutomata.VIVA);
 				tumor.nucleos(Runtime.getRuntime().availableProcessors());
 				
 				if (picLabel == null)
 				{
-					picLabel = new JLabel(new ImageIcon(tumor.tejido().imagenColor()));
+					picLabel = new JLabel(new ImageIcon(imagenColor()));
 					panel.add(picLabel);
 				}
 				else
-					picLabel.setIcon(new ImageIcon(tumor.tejido().imagenColor()));
+					picLabel.setIcon(new ImageIcon(imagenColor()));
 					
 				panel.revalidate();
 				panel.repaint();
@@ -148,7 +206,7 @@ public class MainGrafico
 					{
 						while (!finalizar)
 						{
-							imagen = tumor.tejido().imagenColor();
+							imagen = imagenColor();
 							picLabel.setIcon(new ImageIcon(imagen));
 							
 							tumor.ejecutar(campoIt);
