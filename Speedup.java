@@ -3,65 +3,68 @@ import java.util.Scanner;
 
 public class Speedup
 {
-	private static int tam, maxTareas, generaciones;
-	private static double tic, tac;
-	private static double[] tiempos;
+	private static int size, maxTasks, stepTasks, steps;
+	private static double tic, toc;
+	private static double[] time;
 	
 	public static void main(String[] args) throws Exception
 	{
-		if (args.length == 3)
+		if (args.length == 4)
 		{
-			tam = Integer.parseInt(args[0]);
-			maxTareas = Integer.parseInt(args[1]);
-			generaciones = Integer.parseInt(args[2]);
+			size      = Integer.parseInt(args[0]);
+			maxTasks  = Integer.parseInt(args[1]);
+			stepTasks = Integer.parseInt(args[2]);
+			steps     = Integer.parseInt(args[3]);
 		}
 		else
 		{
 			Scanner teclado = new Scanner(System.in);
-			System.out.println("Introduce un tamaño válido");
-			tam = teclado.nextInt();
-			System.out.println("Introduce el máximo de tareas a ejecutar");
-			maxTareas = teclado.nextInt();
-			System.out.println("Introduce el número de generaciones");
-			generaciones = teclado.nextInt();
+			System.out.println("Enter a valid size");
+			size = teclado.nextInt();
+			System.out.println("Enter maximum number of tasks to run");
+			maxTasks = teclado.nextInt();
+			System.out.println("Enter steps between number of tasks");
+			stepTasks = teclado.nextInt();
+			System.out.println("Enter number of generations to compute");
+			steps = teclado.nextInt();
 			teclado.close();
 		}
 		
-		tiempos = new double[maxTareas];
+		time = new double[maxTasks];
 		
-		TumorAutomata tumor = new TumorAutomata(tam);
+		TumorAutomaton tumor = new TumorAutomaton(size);
 		tumor.ps  = 1;
 		tumor.pp  = .8;
 		tumor.pm  = .2;
 		tumor.np  = 5;
 		tumor.rho = 2;
 		
-		tumor.cambiarEstado(tam/2, tam/2, TumorAutomata.VIVA);
+		tumor.cellState(size/2, size/2, TumorAutomaton.ALIVE);
 		
 		System.out.println("Tareas\tSpeedup\tTiempo");
 		tic = System.nanoTime();
-		tumor.ejecutar(generaciones);
-		tac = System.nanoTime();
+		tumor.execute(steps);
+		toc = System.nanoTime();
 		
-		tiempos[0] = (tac - tic) * 1e-9;// / generaciones;
-		System.out.printf("%d\t%.2f\t%.2f%n", 1, 1.0, tiempos[0]);
+		time[0] = (toc - tic) * 1e-9;// / steps;
+		System.out.printf("%d\t%.2f\t%.2f%n", 1, 1.0, time[0]);
 		
 		
-		for (int n = 2; n <= maxTareas; n+=2)//++n)
+		for (int n = 2; n <= maxTasks; n += stepTasks)//++n)
 		{
-			tumor.reiniciar();
-			tumor.cambiarEstado(tam/2, tam/2, TumorAutomata.VIVA);
+			tumor.reset();
+			tumor.cellState(size/2, size/2, TumorAutomaton.ALIVE);
 			
 			tic = System.nanoTime();
-			tumor.nucleos(n);
-			tumor.ejecutar(generaciones);
-			tac = System.nanoTime();
+			tumor.threads(n);
+			tumor.execute(steps);
+			toc = System.nanoTime();
 			
-			tiempos[n - 1] = (tac - tic) * 1e-9;// / generaciones;
+			time[n - 1] = (toc - tic) * 1e-9;// / steps;
 			
-			System.out.printf("%d\t%.2f\t%.2f%n", n, (tiempos[0] / tiempos[n-1]), tiempos[n-1]);
+			System.out.printf("%d\t%.2f\t%.2f%n", n, (time[0] / time[n-1]), time[n-1]);
 		}
 		
-		tumor.terminar();
+		tumor.shutdown();
 	}
 }

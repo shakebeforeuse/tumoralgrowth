@@ -18,13 +18,13 @@ import javax.swing.SwingWorker;
 
 public class MainGrafico
 {
-	private static TumorAutomata tumor;
-	private static BufferedImage imagen;
+	private static TumorAutomaton tumor;
+	private static BufferedImage image;
 	
 	private static JFrame frame;
 	private static JPanel panel;
 	private static JLabel picLabel;
-	private static JTextField tam;
+	private static JTextField size;
 	private static JTextField it;
 	private static JTextField ps;
 	private static JTextField pp;
@@ -32,19 +32,19 @@ public class MainGrafico
 	private static JTextField np;
 	private static JTextField rho;
 	
-	private static JButton ejecutar;
-	private static JButton parar;
+	private static JButton execute;
+	private static JButton stop;
 	
 	private static SwingWorker worker;
-	private static boolean finalizar;
+	private static boolean terminate;
 	
-	private static int    campoTam; 
-	private static int    campoIt; 
-	private static double campoPs; 
-	private static double campoPp; 
-	private static double campoPm; 
-	private static int    campoNP; 
-	private static int    campoRho; 
+	private static int    fieldSize; 
+	private static int    fieldIt; 
+	private static double fieldPs; 
+	private static double fieldPp; 
+	private static double fieldPm; 
+	private static int    fieldNP; 
+	private static int    fieldRho; 
 	
 	private static void GUI()
 	{
@@ -54,52 +54,52 @@ public class MainGrafico
 		
 		
 		panel = new JPanel();
-		JPanel parametros = new JPanel(new GridLayout(8, 2));
-		panel.add(parametros);
+		JPanel parameters = new JPanel(new GridLayout(8, 2));
+		panel.add(parameters);
 		
-		JLabel tamText = new JLabel("Tamaño ");
-		JLabel itText  = new JLabel("Pasos ");
+		JLabel sizeText = new JLabel("Size ");
+		JLabel itText  = new JLabel("Steps ");
 		JLabel psText  = new JLabel("Ps ");
 		JLabel ppText  = new JLabel("Pp ");
 		JLabel pmText  = new JLabel("Pm ");
 		JLabel npText  = new JLabel("NP ");
 		JLabel rhoText = new JLabel("Rho Máx.");
 		
-		tam = new JTextField("400");
-		it  = new JTextField("1");
-		ps  = new JTextField("0.99");
-		pp  = new JTextField("0.4");
-		pm  = new JTextField("0.2");
-		np  = new JTextField("5");
-		rho = new JTextField("2");
+		size = new JTextField("400");
+		it   = new JTextField("1");
+		ps   = new JTextField("0.99");
+		pp   = new JTextField("0.4");
+		pm   = new JTextField("0.2");
+		np   = new JTextField("5");
+		rho  = new JTextField("2");
 		
 		
-		ejecutar = new JButton("Ejecutar");
-		parar    = new JButton("Parar");
+		execute = new JButton("Run");
+		stop    = new JButton("Stop");
 		
-		parametros.add(tamText);
-		parametros.add(tam);
+		parameters.add(sizeText);
+		parameters.add(size);
 		
-		parametros.add(itText);
-		parametros.add(it);
+		parameters.add(itText);
+		parameters.add(it);
 		
-		parametros.add(psText);
-		parametros.add(ps);
+		parameters.add(psText);
+		parameters.add(ps);
 		
-		parametros.add(ppText);
-		parametros.add(pp);
+		parameters.add(ppText);
+		parameters.add(pp);
 		
-		parametros.add(pmText);
-		parametros.add(pm);
+		parameters.add(pmText);
+		parameters.add(pm);
 		
-		parametros.add(npText);
-		parametros.add(np);
+		parameters.add(npText);
+		parameters.add(np);
 		
-		parametros.add(rhoText);
-		parametros.add(rho);
+		parameters.add(rhoText);
+		parameters.add(rho);
 		
-		parametros.add(ejecutar);
-		parametros.add(parar);
+		parameters.add(execute);
+		parameters.add(stop);
 
 		// picLabel = new JLabel();
 		// panel.add(picLabel);
@@ -112,17 +112,17 @@ public class MainGrafico
 	}
 	
 	//Métodos para debug
-	static BufferedImage imagenColor()
+	static BufferedImage imageColor()
 	{
-		BufferedImage imagen = new BufferedImage(campoTam, campoTam, BufferedImage.TYPE_INT_RGB);
+		BufferedImage image = new BufferedImage(fieldSize, fieldSize, BufferedImage.TYPE_INT_RGB);
 		
-		for (int i = 0; i < campoTam; ++i)
+		for (int i = 0; i < fieldSize; ++i)
 		{
-			for (int j = 0; j < campoTam; ++j)
+			for (int j = 0; j < fieldSize; ++j)
 			{
 				int color = Color.BLUE.getRGB();
 				
-				switch (tumor.verEstado(i, j))
+				switch (tumor.cellState(i, j))
 				{
 					case 0:
 						color = Color.GRAY.getRGB();
@@ -148,68 +148,68 @@ public class MainGrafico
 						color = Color.MAGENTA.getRGB();
 				}
 				
-				imagen.setRGB(j, i, color);
+				image.setRGB(j, i, color);
 			}
 		}
 		
-		return imagen;
+		return image;
 	}
 	
 	public static void main(String[] args) throws Exception
 	{
-		finalizar = false;
+		terminate = false;
 		
 		GUI();
 		
-		ejecutar.addActionListener(new ActionListener()
+		execute.addActionListener(new ActionListener()
 		{
 			public void actionPerformed(ActionEvent e)
 			{
 				while (worker != null && !worker.isDone())
-					finalizar = true;
+					terminate = true;
 				
-				campoTam = Integer.parseInt(tam.getText());
-				campoIt  = Integer.parseInt(it.getText());
-				campoPs  = Double.parseDouble(ps.getText());
-				campoPp  = Double.parseDouble(pp.getText());
-				campoPm  = Double.parseDouble(pm.getText());
-				campoNP  = Integer.parseInt(np.getText());
-				campoRho = Integer.parseInt(rho.getText());
+				fieldSize = Integer.parseInt(size.getText());
+				fieldIt   = Integer.parseInt(it.getText());
+				fieldPs   = Double.parseDouble(ps.getText());
+				fieldPp   = Double.parseDouble(pp.getText());
+				fieldPm   = Double.parseDouble(pm.getText());
+				fieldNP   = Integer.parseInt(np.getText());
+				fieldRho  = Integer.parseInt(rho.getText());
 				
-				tumor = new TumorAutomata(campoTam);
-				tumor.ps  = campoPs;
-				tumor.pp  = campoPp;
-				tumor.pm  = campoPm;
-				tumor.np  = campoNP;
-				tumor.rho = campoRho;
+				tumor     = new TumorAutomaton(fieldSize);
+				tumor.ps  = fieldPs;
+				tumor.pp  = fieldPp;
+				tumor.pm  = fieldPm;
+				tumor.np  = fieldNP;
+				tumor.rho = fieldRho;
 				
-				tumor.cambiarEstado(campoTam / 2, campoTam / 2, TumorAutomata.VIVA);
-				tumor.nucleos(Runtime.getRuntime().availableProcessors());
+				tumor.cellState(fieldSize / 2, fieldSize / 2, TumorAutomaton.ALIVE);
+				tumor.threads(Runtime.getRuntime().availableProcessors());
 				
 				if (picLabel == null)
 				{
-					picLabel = new JLabel(new ImageIcon(imagenColor()));
+					picLabel = new JLabel(new ImageIcon(imageColor()));
 					panel.add(picLabel);
 				}
 				else
-					picLabel.setIcon(new ImageIcon(imagenColor()));
+					picLabel.setIcon(new ImageIcon(imageColor()));
 					
 				panel.revalidate();
 				panel.repaint();
 				frame.pack();
 				
-				finalizar = false;
+				terminate = false;
 				
 				worker = new SwingWorker<Void, Void>()
 				{
 					public Void doInBackground()
 					{
-						while (!finalizar)
+						while (!terminate)
 						{
-							imagen = imagenColor();
-							picLabel.setIcon(new ImageIcon(imagen));
+							image = imageColor();
+							picLabel.setIcon(new ImageIcon(image));
 							
-							tumor.ejecutar(campoIt);
+							tumor.execute(fieldIt);
 						}
 						
 						return null;
@@ -217,18 +217,18 @@ public class MainGrafico
 					
 					protected void done()
 					{
-						finalizar = false;
+						terminate = false;
 					}
 				};
 				worker.execute();
 			}
 		});
 		
-		parar.addActionListener(new ActionListener()
+		stop.addActionListener(new ActionListener()
 		{
 			public void actionPerformed(ActionEvent e)
 			{
-				finalizar = true;
+				terminate = true;
 			}
 		});
 	}
