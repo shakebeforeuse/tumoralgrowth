@@ -319,16 +319,14 @@ public class TumorAutomaton implements Runnable
 							lock_.lock();
 						
 						//Compute no. of alive neighbours
-						n[0] = cellState(x - 1, y - 1) == DEAD ? 1:0;
-						n[1] = cellState(x - 1, y)     == DEAD ? 1:0;
-						n[2] = cellState(x - 1, y + 1) == DEAD ? 1:0;
-						n[3] = cellState(x, y - 1)     == DEAD ? 1:0;
-						n[4] = cellState(x, y + 1)     == DEAD ? 1:0;
-						n[5] = cellState(x + 1, y - 1) == DEAD ? 1:0;
-						n[6] = cellState(x + 1, y)     == DEAD ? 1:0;
-						n[7] = cellState(x + 1, y + 1) == DEAD ? 1:0;
-						
-						denom = n[0] + n[1] + n[2] + n[3] + n[4] + n[5] + n[6] + n[7];
+						int count = 0;
+						for (int i = -1; i <= 1; ++i)
+							for (int j = -1; j <= 1; ++j)
+								if (i != 0 || j != 0)
+								{
+									n[count] = cellState(x + i, y + j) == DEAD ? 1:0;
+									denom += n[count++];
+								}
 						
 						
 						//denom == 0 means that neighbourhood is full.
@@ -340,13 +338,8 @@ public class TumorAutomaton implements Runnable
 							//Compute probability of selecting each
 							//neighbour cell.
 							p[0] = n[0]/denom;
-							p[1] = n[1]/denom + p[0];
-							p[2] = n[2]/denom + p[1];
-							p[3] = n[3]/denom + p[2];
-							p[4] = n[4]/denom + p[3];
-							p[5] = n[5]/denom + p[4];
-							p[6] = n[6]/denom + p[5];
-							p[7] = n[7]/denom + p[6];
+							for (int i = 1; i < 8; ++i)
+								p[i] = n[i]/denom + p[i-1];
 							
 							
 							//Select position, randomly
