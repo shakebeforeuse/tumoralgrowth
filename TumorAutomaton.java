@@ -3,7 +3,6 @@ import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Cellular Automaton that models tumoral growth.
@@ -67,7 +66,6 @@ public class TumorAutomaton implements Runnable
 	
 	//Synchronization
 	private static CyclicBarrier barrier_;
-	private static ReentrantLock lock_;
 	
 	//Non-static random number generaton (to avoid thread-safety)
 	private Random random_;	
@@ -84,7 +82,6 @@ public class TumorAutomaton implements Runnable
 		rhos_       = new int[size_][size_];
 		generation_ = new byte[size_][size_];
 		random_     = new Random();
-		lock_       = new ReentrantLock();
 	}
 	
 	/**
@@ -314,10 +311,6 @@ public class TumorAutomaton implements Runnable
 						int[] n   = new int[8];
 						float[] p = new float[8];
 						
-						//Lock if computing a cell in the border
-						if (x == begin_ || x == end_)
-							lock_.lock();
-						
 						//Compute no. of alive neighbours
 						n[0] = cellState(x - 1, y - 1) == DEAD ? 1:0;
 						n[1] = cellState(x - 1, y)     == DEAD ? 1:0;
@@ -358,10 +351,6 @@ public class TumorAutomaton implements Runnable
 								for (int j = -1; j <= 1 && continueIt; ++j)
 									if ((i != 0 || j != 0) && r < p[cont++])
 									{
-										//Lock if selected in the border
-										if (x+i == begin_ || x+i == end_)
-											lock_.lock();
-											
 										//Proliferate (or migrate) to the specified cell
 										if (proliferate)
 										{
@@ -402,36 +391,19 @@ public class TumorAutomaton implements Runnable
 										
 										//Stop iteration (position already chosen!)
 										continueIt = false;
-										
-										//Release the lock, if selected in the border
-										if (x+i == begin_ || x+i == end_)
-											lock_.unlock();
 									}
 						}
-						
-						//Release the lock, if computing in the border
-						if (x == begin_ || x == end_)
-							lock_.unlock();
 					}
 				}
 			}
 			else
 			{
 				//If the cell do not survive
-				
-				//Lock, if it is in the border
-				if (x == begin_ || x == end_)
-					lock_.lock();
-				
 				//Kill the cell
 				cellState(x, y, DEAD);
 				
 				//Mark DORMANT neighbours as ALIVE, to be processed
 				awakeNeighbourhood(x, y);
-				
-				//Release the lock, if it was in the border
-				if (x == begin_ || x == end_)
-					lock_.unlock();
 			}
 		}
 	}
