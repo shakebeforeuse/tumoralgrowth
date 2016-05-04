@@ -16,7 +16,7 @@ import javax.swing.JButton;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 
-public class MainGrafico
+public class GUI
 {
 	private static TumorAutomaton tumor;
 	private static BufferedImage image;
