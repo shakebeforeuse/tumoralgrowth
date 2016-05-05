@@ -1,6 +1,7 @@
 *.png
 *.tmp
 *.class
+*.txt
 tmp/*
 doc/*
 tar/*
