@@ -66,6 +66,7 @@ public class TumorAutomaton implements Runnable
 	
 	//Synchronization
 	private static CyclicBarrier barrier_;
+	private static final Object lock_ = new Object();
 	
 	//Non-static random number generaton (to avoid thread-safety)
 	private Random random_;	
@@ -311,80 +312,83 @@ public class TumorAutomaton implements Runnable
 						int[] n   = new int[8];
 						float[] p = new float[8];
 						
-						//Compute no. of alive neighbours
-						int count = 0;
-						for (int i = -1; i <= 1; ++i)
-							for (int j = -1; j <= 1; ++j)
-								if (i != 0 || j != 0)
-								{
-									n[count] = cellState(x + i, y + j) == DEAD ? 1:0;
-									denom += n[count++];
-								}
-						
-						
-						//denom == 0 means that neighbourhood is full.
-						//Mark as DORMANT and stop updating this cell.
-						if (denom == 0)
-							cellState(x, y, DORMANT);
-						else
+						synchronized (lock_)
 						{
-							//Compute probability of selecting each
-							//neighbour cell.
-							p[0] = n[0]/denom;
-							for (int i = 1; i < 8; ++i)
-								p[i] = n[i]/denom + p[i-1];
-							
-							
-							//Select position, randomly
-							float r = random_.nextFloat();
-							
-							int cont = 0;
-							boolean continueIt = true;
-							for (int i = -1; i <= 1 && continueIt; ++i)
-								for (int j = -1; j <= 1 && continueIt; ++j)
-									if ((i != 0 || j != 0) && r < p[cont++])
+							//Compute no. of alive neighbours
+							int count = 0;
+							for (int i = -1; i <= 1; ++i)
+								for (int j = -1; j <= 1; ++j)
+									if (i != 0 || j != 0)
 									{
-										//Proliferate (or migrate) to the specified cell
-										if (proliferate)
-										{
-											//New cell				
-											cellState(x + i, y + j, NEW);
-											
-											//Set proliferation signals to 0.
-											ph_[x+i][y+j] = 0;
-											
-											//Reset no. of proliferations remaining until death.
-											rhos_[x+i][y+j] = rho;
-											
-											//Kill the cell if it has reached the limit.
-											if (--rhos_[x][y] == 0)
-											{
-												cellState(x, y, DEAD);
-												awakeNeighbourhood(x, y);
-											}
-										}
-										else
-										{
-											//Move to the selected position
-											cellState(x, y, DEAD);
-											cellState(x + i, y + j, MIGRATED);
-											awakeNeighbourhood(x, y);
-											
-											//Move no. of proliferation signals
-											ph_[x+i][y+j] = ph_[x][y];
-											ph_[x][y]     = 0;
-											
-											//Move no. of proliferations remaining.
-											rhos_[x+i][y+j] = rhos_[x][y];
-											rhos_[x][y]     = 0;
-										}
-										
-										//Mark to be processed in the next iteration
-										generation_[x+i][y+j] = (byte)((it_ + 1) % 2);
-										
-										//Stop iteration (position already chosen!)
-										continueIt = false;
+										n[count] = cellState(x + i, y + j) == DEAD ? 1:0;
+										denom += n[count++];
 									}
+							
+							
+							//denom == 0 means that neighbourhood is full.
+							//Mark as DORMANT and stop updating this cell.
+							if (denom == 0)
+								cellState(x, y, DORMANT);
+							else
+							{
+								//Compute probability of selecting each
+								//neighbour cell.
+								p[0] = n[0]/denom;
+								for (int i = 1; i < 8; ++i)
+									p[i] = n[i]/denom + p[i-1];
+								
+								
+								//Select position, randomly
+								float r = random_.nextFloat();
+								
+								int cont = 0;
+								boolean continueIt = true;
+								for (int i = -1; i <= 1 && continueIt; ++i)
+									for (int j = -1; j <= 1 && continueIt; ++j)
+										if ((i != 0 || j != 0) && r < p[cont++])
+										{
+											//Proliferate (or migrate) to the specified cell
+											if (proliferate)
+											{
+												//New cell				
+												cellState(x + i, y + j, NEW);
+												
+												//Set proliferation signals to 0.
+												ph_[x+i][y+j] = 0;
+												
+												//Reset no. of proliferations remaining until death.
+												rhos_[x+i][y+j] = rho;
+												
+												//Kill the cell if it has reached the limit.
+												if (--rhos_[x][y] == 0)
+												{
+													cellState(x, y, DEAD);
+													awakeNeighbourhood(x, y);
+												}
+											}
+											else
+											{
+												//Move to the selected position
+												cellState(x, y, DEAD);
+												cellState(x + i, y + j, MIGRATED);
+												awakeNeighbourhood(x, y);
+												
+												//Move no. of proliferation signals
+												ph_[x+i][y+j] = ph_[x][y];
+												ph_[x][y]     = 0;
+												
+												//Move no. of proliferations remaining.
+												rhos_[x+i][y+j] = rhos_[x][y];
+												rhos_[x][y]     = 0;
+											}
+											
+											//Mark to be processed in the next iteration
+											generation_[x+i][y+j] = (byte)((it_ + 1) % 2);
+											
+											//Stop iteration (position already chosen!)
+											continueIt = false;
+										}
+							}
 						}
 					}
 				}
@@ -392,11 +396,14 @@ public class TumorAutomaton implements Runnable
 			else
 			{
 				//If the cell do not survive
-				//Kill the cell
-				cellState(x, y, DEAD);
-				
-				//Mark DORMANT neighbours as ALIVE, to be processed
-				awakeNeighbourhood(x, y);
+				synchronized (lock_)
+				{
+					//Kill the cell
+					cellState(x, y, DEAD);
+					
+					//Mark DORMANT neighbours as ALIVE, to be processed
+					awakeNeighbourhood(x, y);
+				}
 			}
 		}
 	}
