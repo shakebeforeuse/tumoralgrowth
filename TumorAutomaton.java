@@ -53,6 +53,7 @@ public class TumorAutomaton implements Runnable
 	//Partition
 	private int begin_;
 	private int end_;
+	private static int[] limits_;
 	
 	//No. of generations to compute
 	private static int steps_;
@@ -66,6 +67,7 @@ public class TumorAutomaton implements Runnable
 	
 	//Synchronization
 	private static CyclicBarrier barrier_;
+	private static Object[] locks_;
 	
 	//Non-static random number generaton (to avoid thread-safety)
 	private Random random_;	
@@ -127,6 +129,8 @@ public class TumorAutomaton implements Runnable
 			threadPool_ = Executors.newFixedThreadPool(threads_);
 			barrier_    = new CyclicBarrier(threads_ + 1);
 			tasks_      = new Runnable[threads_];
+			locks_      = new Object[threads_];
+			limits_     = new int[threads_];
 			
 			//Distribute the grid between the tasks that are being created
 			for (int i = 0; i < threads_; ++i)
@@ -137,7 +141,9 @@ public class TumorAutomaton implements Runnable
 				if ((i + 1) == threads_)
 					endInterval = size_;
 				
-				tasks_[i] = new TumorAutomaton(beginInterval, endInterval);
+				tasks_[i]  = new TumorAutomaton(beginInterval, endInterval);
+				limits_[i] = endInterval;
+				locks_[i]  = new Object();
 			}
 		}
 	}
@@ -311,92 +317,175 @@ public class TumorAutomaton implements Runnable
 						int[] n   = new int[8];
 						float[] p = new float[8];
 						
-						//Compute no. of alive neighbours
-						int count = 0;
-						for (int i = -1; i <= 1; ++i)
-							for (int j = -1; j <= 1; ++j)
-								if (i != 0 || j != 0)
-								{
-									n[count] = cellState(x + i, y + j) == DEAD ? 1:0;
-									denom += n[count++];
-								}
+						//Find the partition that contains the cell
+						int partition = -1;
+						for (int i = 0; i < threads_ && partition == -1; ++i)
+							if (x < limits_[i])
+								partition = i;
 						
+						//In case we need to hold another lock
+						int newPartition = -1, newX = -1, newY = -1;
 						
-						//denom == 0 means that neighbourhood is full.
-						//Mark as DORMANT and stop updating this cell.
-						if (denom == 0)
-							cellState(x, y, DORMANT);
-						else
+						//Lock it
+						synchronized (locks_[partition])
 						{
-							//Compute probability of selecting each
-							//neighbour cell.
-							p[0] = n[0]/denom;
-							for (int i = 1; i < 8; ++i)
-								p[i] = n[i]/denom + p[i-1];
-							
-							
-							//Select position, randomly
-							float r = random_.nextFloat();
-							
-							int cont = 0;
-							boolean continueIt = true;
-							for (int i = -1; i <= 1 && continueIt; ++i)
-								for (int j = -1; j <= 1 && continueIt; ++j)
-									if ((i != 0 || j != 0) && r < p[cont++])
+							//Compute no. of alive neighbours
+							int count = 0;
+							for (int i = -1; i <= 1; ++i)
+								for (int j = -1; j <= 1; ++j)
+									if (i != 0 || j != 0)
 									{
-										//Proliferate (or migrate) to the specified cell
-										if (proliferate)
-										{
-											//New cell				
-											cellState(x + i, y + j, NEW);
-											
-											//Set proliferation signals to 0.
-											ph_[x+i][y+j] = 0;
-											
-											//Reset no. of proliferations remaining until death.
-											rhos_[x+i][y+j] = rho;
-											
-											//Kill the cell if it has reached the limit.
-											if (--rhos_[x][y] == 0)
-											{
-												cellState(x, y, DEAD);
-												awakeNeighbourhood(x, y);
-											}
-										}
-										else
-										{
-											//Move to the selected position
-											cellState(x, y, DEAD);
-											cellState(x + i, y + j, MIGRATED);
-											awakeNeighbourhood(x, y);
-											
-											//Move no. of proliferation signals
-											ph_[x+i][y+j] = ph_[x][y];
-											ph_[x][y]     = 0;
-											
-											//Move no. of proliferations remaining.
-											rhos_[x+i][y+j] = rhos_[x][y];
-											rhos_[x][y]     = 0;
-										}
-										
-										//Mark to be processed in the next iteration
-										generation_[x+i][y+j] = (byte)((it_ + 1) % 2);
-										
-										//Stop iteration (position already chosen!)
-										continueIt = false;
+										n[count] = cellState(x + i, y + j) == DEAD ? 1:0;
+										denom += n[count++];
 									}
+							
+							
+							//denom == 0 means that neighbourhood is full.
+							//Mark as DORMANT and stop updating this cell.
+							if (denom == 0)
+								cellState(x, y, DORMANT);
+							else
+							{
+								//Compute probability of selecting each
+								//neighbour cell.
+								p[0] = n[0]/denom;
+								for (int i = 1; i < 8; ++i)
+									p[i] = n[i]/denom + p[i-1];
+								
+								
+								//Select position, randomly
+								float r = random_.nextFloat();
+								
+								int cont = 0;
+								boolean continueIt = true;
+								for (int i = -1; i <= 1 && continueIt; ++i)
+									for (int j = -1; j <= 1 && continueIt; ++j)
+										if ((i != 0 || j != 0) && r < p[cont++])
+										{
+											//Find the partition that contains the cell
+											for (int part = 0; part < threads_ && newPartition == -1; ++part)
+												if (x+i < limits_[part])
+													newPartition = part;
+											
+											//If we are writing in the same partition, go ahead
+											if (newPartition == partition)
+											{
+												//Proliferate (or migrate) to the specified cell
+												if (proliferate)
+												{
+													//New cell				
+													cellState(x + i, y + j, NEW);
+													
+													//Set proliferation signals to 0.
+													ph_[x+i][y+j] = 0;
+													
+													//Reset no. of proliferations remaining until death.
+													rhos_[x+i][y+j] = rho;
+													
+													//Kill the cell if it has reached the limit.
+													if (--rhos_[x][y] == 0)
+													{
+														cellState(x, y, DEAD);
+														awakeNeighbourhood(x, y);
+													}
+												}
+												else
+												{
+													//Move to the selected position
+													cellState(x, y, DEAD);
+													cellState(x + i, y + j, MIGRATED);
+													awakeNeighbourhood(x, y);
+													
+													//Move no. of proliferation signals
+													ph_[x+i][y+j] = ph_[x][y];
+													ph_[x][y]     = 0;
+													
+													//Move no. of proliferations remaining.
+													rhos_[x+i][y+j] = rhos_[x][y];
+													rhos_[x][y]     = 0;
+												}
+												
+												//Mark to be processed in the next iteration
+												generation_[x+i][y+j] = (byte)((it_ + 1) % 2);
+											}
+											else
+											{
+												//If we need to write in another partition, we
+												//need to postpone the changes until we
+												//release the lock we are holding in the current
+												//one, or it could result in a deadlock.
+												newX = x + i;
+												newY = y + j;
+											}
+											
+											//Stop iteration (position already chosen!)
+											continueIt = false;
+										}
+							}
 						}
+						
+						if (newX != -1)
+							synchronized (locks_[newPartition])
+							{
+								if (proliferate)
+								{
+									//New cell				
+									cellState(newX, newY, NEW);
+									
+									//Set proliferation signals to 0.
+									ph_[newX][newY] = 0;
+									
+									//Reset no. of proliferations remaining until death.
+									rhos_[newX][newY] = rho;
+									
+									//Kill the cell if it has reached the limit.
+									if (--rhos_[x][y] == 0)
+									{
+										cellState(x, y, DEAD);
+										awakeNeighbourhood(x, y);
+									}
+								}
+								else
+								{
+									//Move to the selected position
+									cellState(x, y, DEAD);
+									cellState(newX, newY, MIGRATED);
+									awakeNeighbourhood(x, y);
+									
+									//Move no. of proliferation signals
+									ph_[newX][newY] = ph_[x][y];
+									ph_[x][y]     = 0;
+									
+									//Move no. of proliferations remaining.
+									rhos_[newX][newY] = rhos_[x][y];
+									rhos_[x][y]     = 0;
+								}
+								
+								//Mark to be processed in the next iteration
+								generation_[newX][newY] = (byte)((it_ + 1) % 2);
+							}
+								
 					}
 				}
 			}
 			else
 			{
-				//If the cell do not survive
-				//Kill the cell
-				cellState(x, y, DEAD);
+				//Find the partition that contains the cell
+				int partition = -1;
+				for (int i = 0; i < threads_ && partition == -1; ++i)
+					if (x < limits_[i])
+						partition = i;
 				
-				//Mark DORMANT neighbours as ALIVE, to be processed
-				awakeNeighbourhood(x, y);
+				//Lock it
+				synchronized (locks_[partition])
+				{
+					//If the cell do not survive
+					//Kill the cell
+					cellState(x, y, DEAD);
+					
+					//Mark DORMANT neighbours as ALIVE, to be processed
+					awakeNeighbourhood(x, y);
+				}
 			}
 		}
 	}

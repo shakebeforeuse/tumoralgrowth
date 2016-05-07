@@ -42,6 +42,7 @@ public class Speedup
 		tumor.cellState(size/2, size/2, TumorAutomaton.ALIVE);
 		
 		System.out.println("Tasks\tSpeedup\tTime");
+		tumor.threads(1);
 		tic = System.nanoTime();
 		tumor.execute(steps);
 		toc = System.nanoTime();
