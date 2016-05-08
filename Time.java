@@ -11,19 +11,19 @@ public class Time
 			int steps = Integer.parseInt(args[1]);
 			int tasks = Integer.parseInt(args[2]);
 			
-			tasks = tasks == 1? 0:tasks;
+			//~ tasks = tasks == 1? 0:tasks;
 			
 			TumorAutomaton tumor = new TumorAutomaton(size);
 			
-			tumor.cellState(size/2, size/2, TumorAutomaton.ALIVE);
+			tumor.setStemCell(size/2, size/2);
 			
 			double tic = System.nanoTime();
-			tumor.threads(tasks);
+			//~ tumor.threads(tasks);
 			tumor.execute(steps);
 			double toc = System.nanoTime();
 			System.out.print((toc-tic)*1e-9);
 			
-			tumor.shutdown();
+			//~ tumor.shutdown();
 		}
 		else
 			System.out.println("Usage: java Time <size> <steps> <tasks>");

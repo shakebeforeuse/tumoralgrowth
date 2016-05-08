@@ -3,6 +3,7 @@ import java.util.Scanner;
 import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.awt.FlowLayout;
+import java.awt.Graphics2D;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -20,6 +21,7 @@ public class GUI
 {
 	private static TumorAutomaton tumor;
 	private static BufferedImage image;
+	private static long it_;
 	
 	private static JFrame frame;
 	private static JPanel panel;
@@ -120,33 +122,10 @@ public class GUI
 		{
 			for (int j = 0; j < fieldSize; ++j)
 			{
-				int color = Color.BLUE.getRGB();
+				int color = Color.GRAY.getRGB();
 				
-				switch (tumor.cellState(i, j))
-				{
-					case 0:
-						color = Color.GRAY.getRGB();
-						break;
-					
-					case 1:
-						color = Color.DARK_GRAY.getRGB();
-						break;
-						
-					case 2:
-						color = Color.BLACK.getRGB();
-						break;
-					
-					case 3:
-						color = Color.RED.getRGB();
-						break;
-						
-					case 4:
-						color = Color.GREEN.getRGB();
-						break;
-					
-					default:
-						color = Color.MAGENTA.getRGB();
-				}
+				if (tumor.tissue_[i][j])
+					color = Color.BLACK.getRGB();
 				
 				image.setRGB(j, i, color);
 			}
@@ -177,14 +156,15 @@ public class GUI
 				fieldRho  = Integer.parseInt(rho.getText());
 				
 				tumor     = new TumorAutomaton(fieldSize);
-				tumor.ps  = fieldPs;
-				tumor.pp  = fieldPp;
-				tumor.pm  = fieldPm;
+				tumor.ps  = (float)fieldPs;
+				tumor.pp  = (float)fieldPp;
+				tumor.pm  = (float)fieldPm;
 				tumor.np  = fieldNP;
 				tumor.rho = fieldRho;
 				
-				tumor.cellState(fieldSize / 2, fieldSize / 2, TumorAutomaton.ALIVE);
-				tumor.threads(Runtime.getRuntime().availableProcessors());
+				tumor.setStemCell(fieldSize / 2, fieldSize / 2);
+				it_ = 0;
+				//~ tumor.threads(Runtime.getRuntime().availableProcessors());
 				
 				if (picLabel == null)
 				{
@@ -204,12 +184,20 @@ public class GUI
 				{
 					public Void doInBackground()
 					{
+						BufferedImage canvas = new BufferedImage(fieldSize, fieldSize, BufferedImage.TYPE_INT_RGB);
+						
 						while (!terminate)
 						{
-							image = imageColor();
-							picLabel.setIcon(new ImageIcon(image));
-							
 							tumor.execute(fieldIt);
+							it_ += fieldIt;
+							
+							image = imageColor();
+							
+							Graphics2D g = canvas.createGraphics();
+							g.drawImage(image, 0, 0, null);
+							g.drawString(++it_ + "", 0, 10);
+							
+							picLabel.setIcon(new ImageIcon(canvas));
 						}
 						
 						return null;
