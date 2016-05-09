@@ -63,7 +63,7 @@ public class TumorAutomaton implements Runnable
 	
 	//Number of threads we will have and array of tasks.
 	private static int threads_;
-	private Runnable[] tasks_;
+	private TumorAutomaton[] tasks_;
 	
 	//Pool of threads
 	private ExecutorService threadPool_;
@@ -137,7 +137,7 @@ public class TumorAutomaton implements Runnable
 		{
 			threadPool_ = Executors.newFixedThreadPool(threads_);
 			barrier_    = new CyclicBarrier(threads_ + 1);
-			tasks_      = new Runnable[threads_];
+			tasks_      = new TumorAutomaton[threads_];
 			
 			//Distribute the grid between the tasks that are being created
 			for (int i = 0; i < threads_; ++i)
@@ -175,13 +175,29 @@ public class TumorAutomaton implements Runnable
 			//Set number of iterations
 			steps_ = nGenerations;
 			
-			//Run tasks
-			for (int i = 0; i < tasks_.length; ++i)
-				threadPool_.execute(tasks_[i]);
-			
 			//Wait until all threads are done, k times. Synchronization.
 			for (int k = 0; k < nGenerations; ++k)
 			{
+				//Run tasks
+				for (int i = 0; i < tasks_.length; ++i)
+				{
+					//Compute domain
+					int sizeX = domainEnd_[0] - domainBegin_[0];
+					int sizeY = domainEnd_[1] - domainBegin_[1];
+					
+					int beginInterval = i       * (sizeX / threads_);
+					int endInterval   = (i + 1) * (sizeY / threads_);
+					
+					if ((i + 1) == threads_)
+						endInterval = size_;
+					
+					tasks_[i].begin_ = beginInterval;
+					tasks_[i].end_   = endInterval;
+					
+					//Launch
+					threadPool_.execute(tasks_[i]);
+				}
+					
 				try
 				{
 					barrier_.await();
@@ -206,28 +222,25 @@ public class TumorAutomaton implements Runnable
 	 */
 	public void run()
 	{
-		for (int k = 0; k < steps_; ++k)
-			try
-			{
-				int startX = Math.max(begin_, domainBegin_[0]);
-				int endX   = Math.min(end_, domainEnd_[0]);
-				int startY = domainBegin_[1];
-				int endY   = domainEnd_[1];
+		try
+		{
+			int startY = domainBegin_[1];
+			int endY   = domainEnd_[1];
 
-				for (int i = startX; i < endX; ++i)
-					for (int j = startY; j < endY; ++j)
-						updateCell(i, j);
-			
-				barrier_.await();
-			}
-			catch (BrokenBarrierException e)
-			{
-				System.err.println("BrokenBarrierException: " + e.getMessage());
-			}
-			catch (InterruptedException e)
-			{
-				System.err.println("InterruptedException: " + e.getMessage());
-			}
+			for (int i = begin_; i < end_; ++i)
+				for (int j = startY; j < endY; ++j)
+					updateCell(i, j);
+		
+			barrier_.await();
+		}
+		catch (BrokenBarrierException e)
+		{
+			System.err.println("BrokenBarrierException: " + e.getMessage());
+		}
+		catch (InterruptedException e)
+		{
+			System.err.println("InterruptedException: " + e.getMessage());
+		}
 	}
 	
 	/**
