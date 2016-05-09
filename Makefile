@@ -3,9 +3,9 @@ JC = javac
 JFLAGS = 
 TAR = tar
 TFLAGS = czf
-SOURCE = Makefile Speedup.java GUI.java TumorAutomaton.java
+SOURCE = Makefile Speedup.java GUI.java TumorAutomaton.java Time.java
 	
-all: Speedup.class GUI.class TumorAutomaton.class
+all: Speedup.class GUI.class TumorAutomaton.class Time.class
 	
 %.class : %.java
 	$(JC) $(JFLAGS) $<

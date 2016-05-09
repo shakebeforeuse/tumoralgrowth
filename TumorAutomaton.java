@@ -49,6 +49,10 @@ public class TumorAutomaton implements Runnable
 	private static byte[][] generation_;
 	private static byte it_;
 	
+	//Dynamic domain
+	private volatile static int[] domainBegin_;
+	private volatile static int[] domainEnd_;
+	
 	//Paralelism
 	//Partition
 	private int begin_;
@@ -82,6 +86,13 @@ public class TumorAutomaton implements Runnable
 		rhos_       = new int[size_][size_];
 		generation_ = new byte[size_][size_];
 		random_     = new Random();
+		
+		domainBegin_    = new int[2];
+		domainEnd_      = new int[2];
+		domainBegin_[0] = size;
+		domainBegin_[1] = size;
+		domainEnd_[0]   = 0;
+		domainEnd_[1]   = 0;
 	}
 	
 	/**
@@ -153,8 +164,8 @@ public class TumorAutomaton implements Runnable
 			//Iterate k times over the whole grid, updating cells
 			for (int k = 0; k < nGenerations; ++k)
 			{
-				for (int i = 0; i < size_; ++i)
-					for (int j = 0; j < size_; ++j)
+				for (int i = domainBegin_[0]; i < domainEnd_[0]; ++i)
+					for (int j = domainBegin_[1]; j < domainEnd_[1]; ++j)
 						updateCell(i, j);
 				
 				it_ = (byte)((it_ + 1) % 2);
@@ -172,7 +183,7 @@ public class TumorAutomaton implements Runnable
 			for (int k = 0; k < nGenerations; ++k)
 			{
 				try
-				{					
+				{
 					barrier_.await();
 					//~ Thread.currentThread().sleep(1000);
 					it_ = (byte)((it_ + 1) % 2);
@@ -196,11 +207,15 @@ public class TumorAutomaton implements Runnable
 	public void run()
 	{
 		for (int k = 0; k < steps_; ++k)
-		{
 			try
 			{
-				for (int i = begin_; i < end_; ++i)
-					for (int j = 0; j < size_; ++j)
+				int startX = Math.max(begin_, domainBegin_[0]);
+				int endX   = Math.min(end_, domainEnd_[0]);
+				int startY = domainBegin_[1];
+				int endY   = domainEnd_[1];
+
+				for (int i = startX; i < endX; ++i)
+					for (int j = startY; j < endY; ++j)
 						updateCell(i, j);
 			
 				barrier_.await();
@@ -213,7 +228,6 @@ public class TumorAutomaton implements Runnable
 			{
 				System.err.println("InterruptedException: " + e.getMessage());
 			}
-		}
 	}
 	
 	/**
@@ -256,7 +270,19 @@ public class TumorAutomaton implements Runnable
 	{
 		//Check if it is within bounds. Do nothing if not.
 		if (0 <= x && x < size_ && 0 <= y && y < size_)
+		{
+			if (domainBegin_[0] > x)
+				domainBegin_[0] = x;
+			if (domainBegin_[1] > y)
+				domainBegin_[1] = y;
+				
+			if (domainEnd_[0] <= x)
+				domainEnd_[0] = Math.min(x + 1, size_);
+			if (domainEnd_[1] <= y)
+				domainEnd_[1] = Math.min(y + 1, size_);
+			
 			tissue_[x][y] = v;
+		}
 	}
 	
 	/**
