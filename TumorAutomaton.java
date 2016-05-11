@@ -315,7 +315,7 @@ public class TumorAutomaton implements Runnable
 						float[] p = new float[8];
 						
 						//Lock if computing a cell in the border
-						if (x == begin_ || x == end_)
+						if (x == begin_ || x == end_ - 1)
 							lock_.lock();
 						
 						//Compute no. of alive neighbours
@@ -352,7 +352,7 @@ public class TumorAutomaton implements Runnable
 									if ((i != 0 || j != 0) && r < p[cont++])
 									{
 										//Lock if selected in the border
-										if (x+i == begin_ || x+i == end_)
+										if (x+i == begin_ || x+i >= end_ - 1)
 											lock_.lock();
 											
 										//Proliferate (or migrate) to the specified cell
@@ -397,13 +397,13 @@ public class TumorAutomaton implements Runnable
 										continueIt = false;
 										
 										//Release the lock, if selected in the border
-										if (x+i == begin_ || x+i == end_)
+										if (x+i == begin_ || x+i >= end_ - 1)
 											lock_.unlock();
 									}
 						}
 						
 						//Release the lock, if computing in the border
-						if (x == begin_ || x == end_)
+						if (x == begin_ || x == end_ - 1)
 							lock_.unlock();
 					}
 				}
@@ -413,7 +413,7 @@ public class TumorAutomaton implements Runnable
 				//If the cell do not survive
 				
 				//Lock, if it is in the border
-				if (x == begin_ || x == end_)
+				if (x == begin_ || x == end_ - 1)
 					lock_.lock();
 				
 				//Kill the cell
@@ -423,7 +423,7 @@ public class TumorAutomaton implements Runnable
 				awakeNeighbourhood(x, y);
 				
 				//Release the lock, if it was in the border
-				if (x == begin_ || x == end_)
+				if (x == begin_ || x == end_ - 1)
 					lock_.unlock();
 			}
 		}
