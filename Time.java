@@ -15,6 +15,12 @@ public class Time
 			
 			TumorAutomaton tumor = new TumorAutomaton(size);
 			
+			tumor.ps  = 1;
+			tumor.pp  = .8;
+			tumor.pm  = .2;
+			tumor.np  = 5;
+			tumor.rho = 2;
+			
 			tumor.cellState(size/2, size/2, TumorAutomaton.ALIVE);
 			
 			double tic = System.nanoTime();
