@@ -244,13 +244,18 @@ public class TumorAutomaton implements Runnable
 	 */
 	void reset()
 	{
-		tissue_     = new int[size_][size_];
-		ph_         = new int[size_][size_];
-		rhos_       = new int[size_][size_];
-		generation_ = new byte[size_][size_];
-		it_         = 0;
-	}
-	
+		tissue_         = new int[size_][size_];
+		ph_             = new int[size_][size_];
+		rhos_           = new int[size_][size_];
+		generation_     = new byte[size_][size_];
+		it_             = 0;
+		domainBegin_[0] = size_;
+		domainBegin_[1] = size_;
+		domainEnd_[0]   = 0;
+		domainEnd_[1]   = 0;
+		
+		threadIndex_.set(0);
+	}	
 	
 	/**
 	 * Return the state of the cell (x, y).
