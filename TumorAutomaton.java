@@ -4,6 +4,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Cellular Automaton that models tumoral growth.
@@ -24,7 +25,7 @@ public class TumorAutomaton implements Runnable
 	/** State of a recently migrated cell. */
 	public static final int MIGRATED = 4;
 	/** State of a debuging purpose cell. */
-	//public static final int DEBUG = -1;
+	public static final int DEBUG = -1;
 	
 	//Tumoral growth simulation parameters
 	/** Survival probability. */
@@ -73,6 +74,7 @@ public class TumorAutomaton implements Runnable
 	
 	//Synchronization
 	private static CyclicBarrier barrier_;
+	private static ReentrantLock[] locks_;
 	
 	//Non-static random number generaton (to avoid thread-safety)
 	private Random random_;	
@@ -141,11 +143,15 @@ public class TumorAutomaton implements Runnable
 		{
 			threadPool_ = Executors.newFixedThreadPool(threads_);
 			barrier_    = new CyclicBarrier(threads_ + 1);
+			locks_      = new ReentrantLock[threads_ - 1];
 			tasks_      = new Runnable[threads_];
 			
-			//Distribute the grid between the tasks that are being created
+			//Create tasks and locks
 			for (int i = 0; i < threads_; ++i)
 				tasks_[i] = new TumorAutomaton();
+				
+			for (int i = 0; i < locks_.length; ++i)
+				locks_[i] = new ReentrantLock();
 		}
 	}
 	
@@ -210,7 +216,8 @@ public class TumorAutomaton implements Runnable
 			int endX   = domainBegin_[0] + (index_ + 1) * delta;
 			
 			//Avoid IndexOutOfRange
-			endX = Math.min(endX, size_);
+			startX = Math.max(startX, 0);
+			endX   = Math.min(endX, size_);
 			
 			if (index_ + 1 == threads_)
 				endX = domainEnd_[0];
@@ -220,9 +227,35 @@ public class TumorAutomaton implements Runnable
 			int startY = domainBegin_[1];
 			int endY   = domainEnd_[1];
 			
+			System.out.println("Thread " + index_ + ": X(" + startX + ", " + endX + ") Y(" + startY + ", " + endY + ")");
+			
+			tissue_[startX][startY] = DEBUG;
+			tissue_[startX][endY] = DEBUG;
+			tissue_[endX][startY] = DEBUG;
+			tissue_[endX][endY] = DEBUG;
+			
 			for (int i = startX; i < endX; ++i)
-				for (int j = startY; j < endY; ++j)
-					updateCell(i, j);
+			{
+				//~ if (index_ != 0 && i < startX + 2)
+					//~ locks_[index_ - 1].lock();
+					
+				//~ if (index_ != threads_ - 1 && i >= endX - 2)
+					//~ locks_[index_].lock();
+				
+				try
+				{
+					for (int j = domainBegin_[1]; j < domainEnd_[1]; ++j)
+							updateCell(i, j);
+				}
+				finally
+				{
+					//~ if (index_ != 0 && i < startX + 2)
+						//~ locks_[index_ - 1].unlock();
+					
+					//~ if (index_ != threads_ - 1 && i >= endX - 2)
+						//~ locks_[index_].unlock();
+				}
+			}
 			
 			try
 			{
@@ -286,9 +319,9 @@ public class TumorAutomaton implements Runnable
 		if (0 <= x && x < size_ && 0 <= y && y < size_)
 		{
 			if (domainBegin_[0] > x)
-				domainBegin_[0] = x;
+				domainBegin_[0] = Math.max(x - 1, 0);
 			if (domainBegin_[1] > y)
-				domainBegin_[1] = y;
+				domainBegin_[1] = Math.max(y - 1, 0);
 				
 			if (domainEnd_[0] <= x)
 				domainEnd_[0] = Math.min(x + 1, size_);
@@ -324,7 +357,7 @@ public class TumorAutomaton implements Runnable
 	public void updateCell(int x, int y)
 	{
 		//Check if ALIVE and whether should be processed or not (current generation?)
-		if (cellState(x, y) != DEAD && generation_[x][y] == it_)
+		if (cellState(x, y) != DEAD && cellState(x, y) != DEBUG && generation_[x][y] == it_)
 		{
 			//Mark to be computed in the next generation
 			generation_[x][y] = (byte)((it_ + 1) % 2);
