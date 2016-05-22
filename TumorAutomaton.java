@@ -4,7 +4,6 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Cellular Automaton that models tumoral growth.
@@ -72,7 +71,7 @@ public class TumorAutomaton implements Runnable
 	
 	//Synchronization
 	private static CyclicBarrier barrier_;
-	private static ReentrantLock[] locks_;
+	private static Object[]      locks_;
 	
 	//Non-static random number generaton (to avoid thread-safety)
 	private Random random_;	
@@ -139,7 +138,7 @@ public class TumorAutomaton implements Runnable
 		{
 			threadPool_ = Executors.newFixedThreadPool(threads_);
 			barrier_    = new CyclicBarrier(threads_ + 1);
-			locks_      = new ReentrantLock[threads_ - 1];
+			locks_      = new Object[threads_ - 1];
 			tasks_      = new TumorAutomaton[threads_];
 			
 			//Create tasks and locks
@@ -147,7 +146,7 @@ public class TumorAutomaton implements Runnable
 				tasks_[i] = new TumorAutomaton();
 				
 			for (int i = 0; i < locks_.length; ++i)
-				locks_[i] = new ReentrantLock();
+				locks_[i] = new Object();
 		}
 	}
 	
@@ -227,50 +226,68 @@ public class TumorAutomaton implements Runnable
 			//Change iteration direction, to avoid distortion
 			if (it_ == 0)
 				for (int i = startX; i < endX; ++i)
-				{
-					if (index_ != 0 && i < startX + 2)
-						locks_[index_ - 1].lock();
-						
-					if (index_ != threads_ - 1 && i >= endX - 2)
-						locks_[index_].lock();
-					
-					try
-					{
-						for (int j = startY; j < endY; ++j)
-								updateCell(i, j);
-					}
-					finally
-					{
+					//If both borders overlap: hold both locks
+					if (index_ != 0 && i < startX + 2 && index_ != threads_ - 1 && i >= endX - 2)
+						synchronized(locks_[index_ - 1])
+						{
+							synchronized(locks_[index_])
+							{
+								for (int j = startY; j < endY; ++j)
+									updateCell(i, j);
+							}
+						}
+					else
+						//Hold first lock
 						if (index_ != 0 && i < startX + 2)
-							locks_[index_ - 1].unlock();
-						
-						if (index_ != threads_ - 1 && i >= endX - 2)
-							locks_[index_].unlock();
-					}
-				}
+							synchronized(locks_[index_ - 1])
+							{
+								for (int j = startY; j < endY; ++j)
+									updateCell(i, j);
+							}
+						else
+							//Hold second lock
+							if (index_ != threads_ - 1 && i >= endX - 2)
+								synchronized(locks_[index_])
+								{
+									for (int j = startY; j < endY; ++j)
+										updateCell(i, j);
+								}
+							else
+								//Hold none
+								for (int j = startY; j < endY; ++j)
+									updateCell(i, j);
 			else
 				for (int i = endX - 1; i >= startX; --i)
-				{
-					if (index_ != 0 && i < startX + 2)
-						locks_[index_ - 1].lock();
-						
-					if (index_ != threads_ - 1 && i >= endX - 2)
-						locks_[index_].lock();
-					
-					try
-					{
-						for (int j = endY - 1; j >= startY; --j)
-								updateCell(i, j);
-					}
-					finally
-					{
+					//If both borders overlap: hold both locks
+					if (index_ != 0 && i < startX + 2 && index_ != threads_ - 1 && i >= endX - 2)
+						synchronized(locks_[index_ - 1])
+						{
+							synchronized(locks_[index_])
+							{
+								for (int j = endY - 1; j >= startY; --j)
+									updateCell(i, j);
+							}
+						}
+					else
+						//Hold first lock
 						if (index_ != 0 && i < startX + 2)
-							locks_[index_ - 1].unlock();
-						
-						if (index_ != threads_ - 1 && i >= endX - 2)
-							locks_[index_].unlock();
-					}
-				}
+							synchronized(locks_[index_ - 1])
+							{
+								for (int j = endY - 1; j >= startY; --j)
+									updateCell(i, j);
+							}
+						else
+							//Hold second lock
+							if (index_ != threads_ - 1 && i >= endX - 2)
+								synchronized(locks_[index_])
+								{
+									for (int j = endY - 1; j >= startY; --j)
+										updateCell(i, j);
+								}
+							else
+								//Hold none
+								for (int j = endY - 1; j >= startY; --j)
+									updateCell(i, j);
 			
 			try
 			{
