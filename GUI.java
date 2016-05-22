@@ -218,7 +218,7 @@ public class GUI
 							
 							Graphics2D g = canvas.createGraphics();
 							g.drawImage(image, 0, 0, null);
-							g.drawString(++it_ + "", 0, 10);
+							g.drawString(it_ + "", 0, 10);
 							
 							picLabel.setIcon(new ImageIcon(canvas));
 						}

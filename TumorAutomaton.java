@@ -4,12 +4,11 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Cellular Automaton that models tumoral growth.
  * @author Manuel Francisco
- * @version 1.0 04/2016
+ * @version 1.0 05/2016
  */
 public class TumorAutomaton implements Runnable
 {
@@ -24,8 +23,6 @@ public class TumorAutomaton implements Runnable
 	public static final int NEW = 3;
 	/** State of a recently migrated cell. */
 	public static final int MIGRATED = 4;
-	/** State of a debuging purpose cell. */
-	public static final int DEBUG = -1;
 	
 	//Tumoral growth simulation parameters
 	/** Survival probability. */
@@ -40,18 +37,18 @@ public class TumorAutomaton implements Runnable
 	public static int    rho;
 	
 	//CA grid
-	private static int[][]  tissue_;
-	private static int  size_;
+	private static int[][] tissue_;
+	private static int     size_;
 	
 	//No. of times each cell can proliferatete
-	private static int[][]  rhos_;
+	private static int[][] rhos_;
 	
 	//No. of times each cell has been signaled for proliferatetion
-	private static int[][]  ph_;
+	private static int[][] ph_;
 	
 	//To avoid processing a new cell in the same generation
 	private static byte[][] generation_;
-	private static byte it_;
+	private        int      it_;
 	
 	//Dynamic domain
 	private volatile static int[] domainBegin_;
@@ -60,21 +57,20 @@ public class TumorAutomaton implements Runnable
 	//Paralelism
 	//Partition
 	private static AtomicInteger threadIndex_;
-	private int index_;
+	private        int index_;
 	
 	//No. of generations to compute
 	private static int steps_;
 	
 	//Number of threads we will have and array of tasks.
-	private static int threads_;
-	private Runnable[] tasks_;
+	private static int              threads_;
+	private        TumorAutomaton[] tasks_;
 	
 	//Pool of threads
 	private ExecutorService threadPool_;
 	
 	//Synchronization
 	private static CyclicBarrier barrier_;
-	private static ReentrantLock[] locks_;
 	
 	//Non-static random number generaton (to avoid thread-safety)
 	private Random random_;	
@@ -103,9 +99,7 @@ public class TumorAutomaton implements Runnable
 	}
 	
 	/**
-	 * Intended to create the tasks.
-	 * @param begin Begin of the partition.
-	 * @param end End of the partition.
+	 * Private constructor for tasks creation.
 	 */
 	private TumorAutomaton()
 	{
@@ -143,15 +137,11 @@ public class TumorAutomaton implements Runnable
 		{
 			threadPool_ = Executors.newFixedThreadPool(threads_);
 			barrier_    = new CyclicBarrier(threads_ + 1);
-			locks_      = new ReentrantLock[threads_ - 1];
-			tasks_      = new Runnable[threads_];
+			tasks_      = new TumorAutomaton[threads_];
 			
 			//Create tasks and locks
 			for (int i = 0; i < threads_; ++i)
 				tasks_[i] = new TumorAutomaton();
-				
-			for (int i = 0; i < locks_.length; ++i)
-				locks_[i] = new ReentrantLock();
 		}
 	}
 	
@@ -166,9 +156,15 @@ public class TumorAutomaton implements Runnable
 			//Iterate k times over the whole grid, updating cells
 			for (int k = 0; k < nGenerations; ++k)
 			{
-				for (int i = domainBegin_[0]; i < domainEnd_[0]; ++i)
-					for (int j = domainBegin_[1]; j < domainEnd_[1]; ++j)
-						updateCell(i, j);
+				//Change iteration direction, to avoid distortion
+				if (it_ == 0)
+					for (int i = domainBegin_[0]; i < domainEnd_[0]; ++i)
+						for (int j = domainBegin_[1]; j < domainEnd_[1]; ++j)
+							updateCell(i, j);
+				else
+					for (int i = domainEnd_[0] - 1; i >= domainBegin_[0]; --i)
+						for (int j = domainEnd_[1] - 1; j >= domainBegin_[1]; --j)
+							updateCell(i, j);
 				
 				it_ = (byte)((it_ + 1) % 2);
 			}
@@ -187,7 +183,6 @@ public class TumorAutomaton implements Runnable
 				try
 				{
 					barrier_.await();
-					//~ Thread.currentThread().sleep(1000);
 					it_ = (byte)((it_ + 1) % 2);
 				}
 				catch (BrokenBarrierException e)
@@ -204,7 +199,7 @@ public class TumorAutomaton implements Runnable
 	
 	/**
 	 * Runnable method. Compute the next 'steps_' generations of the
-	 * cells in the range [begin_, end_).
+	 * cells in the range of the thread.
 	 */
 	public void run()
 	{
@@ -215,10 +210,6 @@ public class TumorAutomaton implements Runnable
 			int startX = domainBegin_[0] + index_       * delta;			
 			int endX   = domainBegin_[0] + (index_ + 1) * delta;
 			
-			//Avoid IndexOutOfRange
-			startX = Math.max(startX, 0);
-			endX   = Math.min(endX, size_);
-			
 			if (index_ + 1 == threads_)
 				endX = domainEnd_[0];
 			
@@ -227,39 +218,21 @@ public class TumorAutomaton implements Runnable
 			int startY = domainBegin_[1];
 			int endY   = domainEnd_[1];
 			
-			System.out.println("Thread " + index_ + ": X(" + startX + ", " + endX + ") Y(" + startY + ", " + endY + ")");
-			
-			tissue_[startX][startY] = DEBUG;
-			tissue_[startX][endY] = DEBUG;
-			tissue_[endX][startY] = DEBUG;
-			tissue_[endX][endY] = DEBUG;
-			
-			for (int i = startX; i < endX; ++i)
-			{
-				//~ if (index_ != 0 && i < startX + 2)
-					//~ locks_[index_ - 1].lock();
-					
-				//~ if (index_ != threads_ - 1 && i >= endX - 2)
-					//~ locks_[index_].lock();
-				
-				try
-				{
-					for (int j = domainBegin_[1]; j < domainEnd_[1]; ++j)
+			//Change iteration direction, to avoid distortion
+			if (it_ == 0)
+				for (int i = startX; i < endX; ++i)
+					for (int j = startY; j < endY; ++j)
 							updateCell(i, j);
-				}
-				finally
-				{
-					//~ if (index_ != 0 && i < startX + 2)
-						//~ locks_[index_ - 1].unlock();
-					
-					//~ if (index_ != threads_ - 1 && i >= endX - 2)
-						//~ locks_[index_].unlock();
-				}
-			}
+			else
+				for (int i = endX - 1; i >= startX; --i)
+					for (int j = endY - 1; j >= startY; --j)
+						updateCell(i, j);
 			
 			try
 			{
+				//Synchronization
 				barrier_.await();
+				it_ = (it_ + 1) % 2;
 			}
 			catch (BrokenBarrierException e)
 			{
@@ -277,17 +250,21 @@ public class TumorAutomaton implements Runnable
 	 */
 	void reset()
 	{
-		tissue_         = new int[size_][size_];
-		ph_             = new int[size_][size_];
-		rhos_           = new int[size_][size_];
-		generation_     = new byte[size_][size_];
-		it_             = 0;
+		tissue_     = new int[size_][size_];
+		ph_         = new int[size_][size_];
+		rhos_       = new int[size_][size_];
+		generation_ = new byte[size_][size_];
+		
 		domainBegin_[0] = size_;
 		domainBegin_[1] = size_;
 		domainEnd_[0]   = 0;
 		domainEnd_[1]   = 0;
 		
 		threadIndex_.set(0);
+		
+		it_ = 0;
+		for (int i = 0; tasks_ != null && i < tasks_.length; ++i)
+			tasks_[i].it_ = 0;
 	}	
 	
 	/**
@@ -357,7 +334,7 @@ public class TumorAutomaton implements Runnable
 	public void updateCell(int x, int y)
 	{
 		//Check if ALIVE and whether should be processed or not (current generation?)
-		if (cellState(x, y) != DEAD && cellState(x, y) != DEBUG && generation_[x][y] == it_)
+		if (cellState(x, y) != DEAD && generation_[x][y] == it_)
 		{
 			//Mark to be computed in the next generation
 			generation_[x][y] = (byte)((it_ + 1) % 2);
