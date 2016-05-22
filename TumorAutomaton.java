@@ -4,6 +4,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Cellular Automaton that models tumoral growth.
@@ -71,6 +72,7 @@ public class TumorAutomaton implements Runnable
 	
 	//Synchronization
 	private static CyclicBarrier barrier_;
+	private static ReentrantLock[] locks_;
 	
 	//Non-static random number generaton (to avoid thread-safety)
 	private Random random_;	
@@ -137,11 +139,15 @@ public class TumorAutomaton implements Runnable
 		{
 			threadPool_ = Executors.newFixedThreadPool(threads_);
 			barrier_    = new CyclicBarrier(threads_ + 1);
+			locks_      = new ReentrantLock[threads_ - 1];
 			tasks_      = new TumorAutomaton[threads_];
 			
 			//Create tasks and locks
 			for (int i = 0; i < threads_; ++i)
 				tasks_[i] = new TumorAutomaton();
+				
+			for (int i = 0; i < locks_.length; ++i)
+				locks_[i] = new ReentrantLock();
 		}
 	}
 	
@@ -221,12 +227,50 @@ public class TumorAutomaton implements Runnable
 			//Change iteration direction, to avoid distortion
 			if (it_ == 0)
 				for (int i = startX; i < endX; ++i)
-					for (int j = startY; j < endY; ++j)
-							updateCell(i, j);
+				{
+					if (index_ != 0 && i < startX + 2)
+						locks_[index_ - 1].lock();
+						
+					if (index_ != threads_ - 1 && i >= endX - 2)
+						locks_[index_].lock();
+					
+					try
+					{
+						for (int j = startY; j < endY; ++j)
+								updateCell(i, j);
+					}
+					finally
+					{
+						if (index_ != 0 && i < startX + 2)
+							locks_[index_ - 1].unlock();
+						
+						if (index_ != threads_ - 1 && i >= endX - 2)
+							locks_[index_].unlock();
+					}
+				}
 			else
 				for (int i = endX - 1; i >= startX; --i)
-					for (int j = endY - 1; j >= startY; --j)
-						updateCell(i, j);
+				{
+					if (index_ != 0 && i < startX + 2)
+						locks_[index_ - 1].lock();
+						
+					if (index_ != threads_ - 1 && i >= endX - 2)
+						locks_[index_].lock();
+					
+					try
+					{
+						for (int j = endY - 1; j >= startY; --j)
+								updateCell(i, j);
+					}
+					finally
+					{
+						if (index_ != 0 && i < startX + 2)
+							locks_[index_ - 1].unlock();
+						
+						if (index_ != threads_ - 1 && i >= endX - 2)
+							locks_[index_].unlock();
+					}
+				}
 			
 			try
 			{
