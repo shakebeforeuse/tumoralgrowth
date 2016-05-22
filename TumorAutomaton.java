@@ -4,6 +4,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Cellular Automaton that models tumoral growth.
@@ -71,7 +72,7 @@ public class TumorAutomaton implements Runnable
 	
 	//Synchronization
 	private static CyclicBarrier barrier_;
-	private static Object        lock_;
+	private static ReentrantLock lock_;
 	
 	//Non-static random number generaton (to avoid thread-safety)
 	private Random random_;	
@@ -98,7 +99,7 @@ public class TumorAutomaton implements Runnable
 		domainEnd_[0]   = 0;
 		domainEnd_[1]   = 0;
 		
-		lock_ = new Object();
+		lock_ = new ReentrantLock();
 	}
 	
 	/**
@@ -364,7 +365,9 @@ public class TumorAutomaton implements Runnable
 						int[] n   = new int[8];
 						float[] p = new float[8];
 						
-						synchronized (lock_)
+						lock_.lock();
+						
+						try
 						{
 							//Compute no. of alive neighbours
 							int count = 0;
@@ -441,6 +444,10 @@ public class TumorAutomaton implements Runnable
 											continueIt = false;
 										}
 							}
+						}
+						finally
+						{
+							lock_.unlock();
 						}
 					}
 				}
