@@ -441,7 +441,7 @@ public class TumorAutomaton implements Runnable
 			}
 			else
 			{
-				//If the cell do not survive
+				//If the cell does not survive
 				//Kill the cell
 				cellState(x, y, DEAD);
 				
