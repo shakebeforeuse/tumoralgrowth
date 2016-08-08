@@ -1,4 +1,5 @@
-import java.util.Random;
+package tumoralgrowthautomaton;
+
 import java.util.Scanner;
 
 public class Speedup
@@ -18,6 +19,7 @@ public class Speedup
 		}
 		else
 		{
+                	System.out.println("Usage: java -cp TumoralGrowth.jar tumoralgrowthautomaton.Speedup <size> <maxTasks> <stepsBetweenTasks> <generations>");
 			Scanner teclado = new Scanner(System.in);
 			System.out.println("Enter a valid size");
 			size = teclado.nextInt();
@@ -33,13 +35,13 @@ public class Speedup
 		time = new double[maxTasks];
 		
 		TumorAutomaton tumor = new TumorAutomaton(size);
-		tumor.ps  = 1;
-		tumor.pp  = .8;
-		tumor.pm  = .2;
-		tumor.np  = 5;
-		tumor.rho = 2;
+		TumorAutomaton.ps  = 1;
+		TumorAutomaton.pp  = .8;
+		TumorAutomaton.pm  = .2;
+		TumorAutomaton.np  = 5;
+		TumorAutomaton.rho = 2;
 		
-		tumor.cellState(size/2, size/2, TumorAutomaton.ALIVE);
+		tumor.setStem(size/2, size/2);
 		
 		System.out.println("Tasks\tSpeedup\tTime");
 		tic = System.nanoTime();
@@ -53,7 +55,7 @@ public class Speedup
 		for (int n = 2; n <= maxTasks; n += stepTasks)//++n)
 		{
 			tumor.reset();
-			tumor.cellState(size/2, size/2, TumorAutomaton.ALIVE);
+			tumor.setStem(size/2, size/2);
 			
 			tic = System.nanoTime();
 			tumor.threads(n);

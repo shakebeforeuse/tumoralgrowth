@@ -1,90 +1,114 @@
+package tumoralgrowthautomaton;
+
 import java.util.Random;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Cellular Automaton that models tumoral growth.
+ * Modelo de simulación tumoral mediante autómata celular.
  * @author Manuel Francisco
- * @version 1.0 05/2016
+ * @version 2.0 06/2016
  */
 public class TumorAutomaton implements Runnable
 {
 	//Cell states
-	/** State of a dead cell. */
-	public static final int DEAD = 0;
-	/** State of a dormant cell. */
-	public static final int DORMANT = 1;
-	/** State of an alive cell. */
-	public static final int ALIVE = 2;
-	/** State of a recently proliferated cell. */
-	public static final int NEW = 3;
-	/** State of a recently migrated cell. */
-	public static final int MIGRATED = 4;
+	/** Estado de una célula muerta. */
+	public static final byte DEAD = 0;
+	/** Estado de una célula latente. */
+	public static final byte DORMANT = 1;
+	/** Estado de una célula viva. */
+	public static final byte ALIVE = 2;
+	/** Estado de una célula recién creada. */
+	public static final byte NEW = 3;
+	/** Estado de una célula que acaba de migrar. */
+	public static final byte MIGRATED = 4;
 	
 	//Tumoral growth simulation parameters
-	/** Survival probability. */
+	/** Probabilidad de supervivencia. */
 	public static double ps;
-	/** Proliferation probability. */
+	/** Probabilidad de proliferación. */
 	public static double pp;
-	/** Migration probability. */
+	/** Probabilidad de migración. */
 	public static double pm;
-	/** Proliferation signals needed to proliferate. */
-	public static int    np;
-	/** Maximum number of times a cell can proliferate without dying. */
-	public static int    rho;
+	/** Número de señales necesarias para proliferar. */
+	public static byte    np;
+	/** Número de veces que una célula puede proliferar sin morir. */
+	public static byte    rho;
 	
 	//CA grid
-	private static int[][] tissue_;
+        /** Dominio tisular. */
+	private static byte[][] tissue_;
+        /** Tamaño del dominio tisular. */
 	private static int     size_;
 	
 	//No. of times each cell can proliferatete
-	private static int[][] rhos_;
+        /** Número de veces que puede proliferar cada célula. */
+	private static byte[][] rhos_;
 	
 	//No. of times each cell has been signaled for proliferatetion
-	private static int[][] ph_;
+        /** Número de señales de proliferación de cada célula. */
+	private static byte[][] ph_;
 	
 	//To avoid processing a new cell in the same generation
+        /** Control de generaciones. */
 	private static byte[][] generation_;
-	private        int      it_;
+        /** Etiqueta de la generación actual. */
+	private        byte      it_;
 	
 	//Dynamic domain
-	private volatile static int[] domainBegin_;
-	private volatile static int[] domainEnd_;
+        /** Inicio del dominio de ejecución. */
+	volatile static int[] domainBegin_;
+        
+        /** Fin del dominio de ejecución. */
+	volatile static int[] domainEnd_;
 	
 	//Paralelism
 	//Partition
+        /** Contador de índices de hilos. */
 	private static AtomicInteger threadIndex_;
+        
+        /** Índice del hilo. */
 	private        int index_;
 	
 	//No. of generations to compute
+        /** Pasos de tiempo discreto a ejecutar. */
 	private static int steps_;
 	
 	//Number of threads we will have and array of tasks.
+        /** Número de tareas. */
 	private static int              threads_;
+        /** Colección de tareas. */
 	private        TumorAutomaton[] tasks_;
 	
 	//Pool of threads
+        /** Ejecutor. */
 	private ExecutorService threadPool_;
 	
 	//Synchronization
+        /** Barrera de sincronización. */
 	private static CyclicBarrier barrier_;
+        
+        /** Colección de cerrojos. */
+	private static ReentrantLock[] locks_;
 	
 	//Non-static random number generaton (to avoid thread-safety)
+        /** Generador de números aleatorios. */
 	private Random random_;	
 	
 	/**
-	 * Creates a new CA with the given size.
-	 * @param size Size of the squared grid.
+	 * Crea un nuevo autómata celular con el tamaño especificado.
+	 * @param size Tamaño del dominio tisular.
 	 */
 	public TumorAutomaton(int size)
 	{
 		size_       = size;
-		tissue_     = new int[size_][size_];
-		ph_         = new int[size_][size_];
-		rhos_       = new int[size_][size_];
+		tissue_     = new byte[size_][size_];
+		ph_         = new byte[size_][size_];
+		rhos_       = new byte[size_][size_];
 		generation_ = new byte[size_][size_];
 		random_     = new Random();
 		
@@ -99,7 +123,7 @@ public class TumorAutomaton implements Runnable
 	}
 	
 	/**
-	 * Private constructor for tasks creation.
+	 * Constructor de tareas.
 	 */
 	private TumorAutomaton()
 	{
@@ -108,8 +132,7 @@ public class TumorAutomaton implements Runnable
 	}
 	
 	/**
-	 * Tries to shutdown the pool of threads, and wait until is
-	 * terminated.
+         * Intenta parar el ejecutor y espera hasta que este haya terminado.
 	 */
 	public void shutdown()
 	{	
@@ -118,9 +141,9 @@ public class TumorAutomaton implements Runnable
 	}
 	
 	/**
-	 * Set the CA to run in parallel. If 0 is given, set the CA to run
-	 * sequentially.
-	 * @param n No. of tasks to run in parallel or 0 to run sequentially
+	 * Configura el autómata para ser ejecutado en paralelo.
+         * Si se especifica 0, el autómata se ejecutará secuencialmente.
+	 * @param n Número de tareas a ejecutar
 	 */
 	public void threads(int n)
 	{
@@ -137,17 +160,21 @@ public class TumorAutomaton implements Runnable
 		{
 			threadPool_ = Executors.newFixedThreadPool(threads_);
 			barrier_    = new CyclicBarrier(threads_ + 1);
+			locks_      = new ReentrantLock[threads_ - 1];
 			tasks_      = new TumorAutomaton[threads_];
 			
 			//Create tasks and locks
 			for (int i = 0; i < threads_; ++i)
 				tasks_[i] = new TumorAutomaton();
+				
+			for (int i = 0; i < locks_.length; ++i)
+				locks_[i] = new ReentrantLock();
 		}
 	}
 	
 	/**
-	 * Runs the CA for a given number of generations.
-	 * @param nGenerations Number of generations to compute.
+         * Ejecuta el autómata durante un número determinado de generaciones.
+	 * @param nGenerations Número de generaciones a computar
 	 */
 	public void execute(int nGenerations)
 	{
@@ -198,8 +225,9 @@ public class TumorAutomaton implements Runnable
 	}
 	
 	/**
-	 * Runnable method. Compute the next 'steps_' generations of the
-	 * cells in the range of the thread.
+	 * Metodo ejecutable. Calcula el número de generaciones especificado
+         * en el atributo 'steps_', dentro de la partición del hilo que lo
+         * ejecute.
 	 */
 	public void run()
 	{
@@ -221,18 +249,56 @@ public class TumorAutomaton implements Runnable
 			//Change iteration direction, to avoid distortion
 			if (it_ == 0)
 				for (int i = startX; i < endX; ++i)
-					for (int j = startY; j < endY; ++j)
-							updateCell(i, j);
+				{
+					if (index_ != 0 && i < startX + 2)
+						locks_[index_ - 1].lock();
+						
+					if (index_ != threads_ - 1 && i >= endX - 2)
+						locks_[index_].lock();
+					
+					try
+					{
+						for (int j = startY; j < endY; ++j)
+								updateCell(i, j);
+					}
+					finally
+					{
+						if (index_ != 0 && i < startX + 2)
+							locks_[index_ - 1].unlock();
+						
+						if (index_ != threads_ - 1 && i >= endX - 2)
+							locks_[index_].unlock();
+					}
+				}
 			else
 				for (int i = endX - 1; i >= startX; --i)
-					for (int j = endY - 1; j >= startY; --j)
-						updateCell(i, j);
+				{
+					if (index_ != 0 && i < startX + 2)
+						locks_[index_ - 1].lock();
+						
+					if (index_ != threads_ - 1 && i >= endX - 2)
+						locks_[index_].lock();
+					
+					try
+					{
+						for (int j = endY - 1; j >= startY; --j)
+								updateCell(i, j);
+					}
+					finally
+					{
+						if (index_ != 0 && i < startX + 2)
+							locks_[index_ - 1].unlock();
+						
+						if (index_ != threads_ - 1 && i >= endX - 2)
+							locks_[index_].unlock();
+					}
+				}
 			
 			try
 			{
 				//Synchronization
 				barrier_.await();
-				it_ = (it_ + 1) % 2;
+				it_ = (byte) ((it_ + 1) % 2);
 			}
 			catch (BrokenBarrierException e)
 			{
@@ -246,13 +312,13 @@ public class TumorAutomaton implements Runnable
 	}
 	
 	/**
-	 * Reset CA.
+	 * Reinicia el autómata celular.
 	 */
 	void reset()
 	{
-		tissue_     = new int[size_][size_];
-		ph_         = new int[size_][size_];
-		rhos_       = new int[size_][size_];
+		tissue_     = new byte[size_][size_];
+		ph_         = new byte[size_][size_];
+		rhos_       = new byte[size_][size_];
 		generation_ = new byte[size_][size_];
 		
 		domainBegin_[0] = size_;
@@ -268,10 +334,10 @@ public class TumorAutomaton implements Runnable
 	}	
 	
 	/**
-	 * Return the state of the cell (x, y).
-	 * @param x Coordinate in the x axis.
-	 * @param y Coordinate in the y axis.
-	 * @return State of the cell (x, y).
+         * Devuelve el estado de la célula (x, y).
+	 * @param x Coordenada en el eje x.
+	 * @param y Coordenada en el eje y.
+	 * @return Estado de la célula (x, y).
 	 */
 	int cellState(int x, int y)
 	{
@@ -285,12 +351,12 @@ public class TumorAutomaton implements Runnable
 	}
 	
 	/**
-	 * Modifies the state of the cell (x, y).
-	 * @param x Coordinate in the x axis.
-	 * @param y Coorindate in the y axis.
-	 * @param v New state of the cell (x, y).
+	 * Modifica el estado de la célula (x, y).
+	 * @param x Coordenada en el eje x.
+	 * @param y Coordenada en el eje y.
+	 * @param v Nuevo estado de la célula (x, y).
 	 */
-	void cellState(int x, int y, int v)
+	void cellState(int x, int y, byte v)
 	{
 		//Check if it is within bounds. Do nothing if not.
 		if (0 <= x && x < size_ && 0 <= y && y < size_)
@@ -310,9 +376,9 @@ public class TumorAutomaton implements Runnable
 	}
 	
 	/**
-	 * Awake dormant cells around (x, y).
-	 * @param x Coordinate in the x axis.
-	 * @param y Coordinate in the y axis.
+         * Despierta a las celulas latentes de la vecindad de (x, y)
+	 * @param x Coordenada en el eje x.
+	 * @param y Coordenada en el eje y.
 	 */
 	void awakeNeighbourhood(int x, int y)
 	{
@@ -327,9 +393,9 @@ public class TumorAutomaton implements Runnable
 	}
 	
 	/**
-	 * Run the CA rule for the cell (x, y).
-	 * @param x Coordinate in the x axis.
-	 * @param y Coordinate in the y axis.
+	 * Ejecuta la regla del autómata para la célula (x, y).
+	 * @param x Coordenada en el eje x.
+	 * @param y Coordenada en el eje y.
 	 */
 	public void updateCell(int x, int y)
 	{
@@ -450,4 +516,23 @@ public class TumorAutomaton implements Runnable
 			}
 		}
 	}
+        
+        /**
+         * Observador del tamaño del dominio tisular.
+         * @return Tamaño del dominio tisular
+         */
+        public int size()
+        {
+            return size_;
+        }
+        
+        /**
+         * Coloca una célula stem en las coordenadas (x, y).
+         * @param x Coordenada en el eje x.
+         * @param y Coordenada en el eje y.
+         */
+        public void setStem(int x, int y)
+        {
+            cellState(x, y, TumorAutomaton.ALIVE);
+        }
 }

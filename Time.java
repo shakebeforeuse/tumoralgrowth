@@ -1,5 +1,4 @@
-import java.util.Random;
-import java.util.Scanner;
+package tumoralgrowthautomaton;
 
 public class Time
 {
@@ -15,13 +14,12 @@ public class Time
 			
 			TumorAutomaton tumor = new TumorAutomaton(size);
 			
-			tumor.ps  = 1;
-			tumor.pp  = .8;
-			tumor.pm  = .2;
-			tumor.np  = 5;
-			tumor.rho = 2;
-			
-			tumor.cellState(size/2, size/2, TumorAutomaton.ALIVE);
+			tumor.setStem(size/2, size/2);
+                        TumorAutomaton.ps  = 1;
+                        TumorAutomaton.pp  = .8;
+                        TumorAutomaton.pm  = .2;
+                        TumorAutomaton.np  = 5;
+                        TumorAutomaton.rho = 2;
 			
 			double tic = System.nanoTime();
 			tumor.threads(tasks);
@@ -32,6 +30,6 @@ public class Time
 			tumor.shutdown();
 		}
 		else
-			System.out.println("Usage: java Time <size> <steps> <tasks>");
+			System.out.println("Usage: java -cp TumoralGrowth.jar tumoralgrowthautomaton.Time <size> <generations> <tasks>");
 	}
 }
